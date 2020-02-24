@@ -222,21 +222,20 @@ parser_error_t parser_getItem(const parser_context_t *ctx,
             switch (parser_mapDisplayIdx(ctx, displayIdx)) {
                 case FIELD_CHAINID:     // ChainID
                     snprintf(outKey, outKeyLen, "ChainID");
-                    parser_arrayToString(outValue, outValueLen,
-                                         parser_tx_obj.chainID, parser_tx_obj.chainIDLen,
-                                         pageIdx, pageCount);
+                    err = parser_arrayToString(outValue, outValueLen,
+                                               parser_tx_obj.chainID,
+                                               parser_tx_obj.chainIDLen,
+                                               pageIdx, pageCount);
                     break;
                 case FIELD_VOTER: {     // Voter
                     snprintf(outKey, outKeyLen, "Voter");
-                    err = parser_arrayToString((char *) UI_buffer, UI_BUFFER,
-                                               parser_tx_obj.votemsg.voterPtr,
-                                               parser_tx_obj.votemsg.voterLen,
-                                               0, NULL);
-                    asciify((char *) UI_buffer);
+                    err = parser_getAddress(parser_tx_obj.chainID, parser_tx_obj.chainIDLen,
+                                            (char *) UI_buffer, UI_BUFFER,
+                                            parser_tx_obj.votemsg.voterPtr,
+                                            parser_tx_obj.votemsg.voterLen);
                     // page it
                     parser_arrayToString(outValue, outValueLen, UI_buffer,
-                                         strlen((char *) UI_buffer),
-                                         pageIdx, pageCount);
+                                         strlen((char *) UI_buffer), pageIdx, pageCount);
                     break;
                 }
                 case FIELD_PROPOSAL_ID: { //Proposal Id
