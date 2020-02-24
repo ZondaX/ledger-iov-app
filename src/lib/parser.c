@@ -249,7 +249,23 @@ parser_error_t parser_getItem(const parser_context_t *ctx,
                     break;
                 }
                 case FIELD_SELECTION: { // Vote option
-                    //TODO
+                    char* sel;
+                    switch (parser_tx_obj.votemsg.voteOption)
+                    {
+                        case VOTE_OPTION_YES:
+                            sel = VOTE_OPTION_YES_STR;
+                            break;
+                        case VOTE_OPTION_NO:
+                            sel = VOTE_OPTION_NO_STR;
+                            break;
+                        case VOTE_OPTION_ABSTAIN:
+                            sel = VOTE_OPTION_ABSTAIN_STR;
+                            break;
+                        default:
+                            sel = VOTE_OPTION_INVALID_STR;
+                    }
+                    MEMCPY(outValue, sel, sizeof(sel));
+                    snprintf(outKey, outKeyLen, "Selection");
                     break;
                 }
                 default: {

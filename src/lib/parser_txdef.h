@@ -144,6 +144,16 @@ typedef struct {
 #define PBIDX_VOTEMSG_VOTER             3
 #define PBIDX_VOTEMSG_VOTE              4
 
+#define VOTE_OPTION_INVALID    0
+#define VOTE_OPTION_YES        1
+#define VOTE_OPTION_NO         2
+#define VOTE_OPTION_ABSTAIN    3
+
+#define VOTE_OPTION_INVALID_STR    "invalid"
+#define VOTE_OPTION_YES_STR        "yes"
+#define VOTE_OPTION_NO_STR         "no"
+#define VOTE_OPTION_ABSTAIN_STR    "abstain"
+
 typedef struct {
     // These bits are to avoid duplicated fields
     struct {
@@ -163,7 +173,7 @@ typedef struct {
     const uint8_t *voterPtr;
     uint16_t voterLen;
 
-    uint32_t  voteOption;
+    uint8_t  voteOption;
 } parser_votemsg_t;
 
 
