@@ -30,15 +30,11 @@
 
 #define APDU_MIN_LENGTH                 5
 
-#define OFFSET_PCK_INDEX                OFFSET_P1  //< Package index offset
-#define OFFSET_PCK_COUNT                OFFSET_P2  //< Package count offset
+#define OFFSET_PAYLOAD_TYPE             OFFSET_P1
 
 #define INS_GET_VERSION                 0
 #define INS_GET_ADDR_ED25519            1
 #define INS_SIGN_ED25519                2
-
-#define BIP32_PATH_0                    (0x80000000 | 0x2c)
-#define BIP32_PATH_1                    (0x80000000 | 0xea)
 
 void app_init();
 

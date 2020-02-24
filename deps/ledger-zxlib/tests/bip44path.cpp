@@ -13,18 +13,34 @@
 *  See the License for the specific language governing permissions and
 *  limitations under the License.
 ********************************************************************************/
+#include <gmock/gmock.h>
+#include <zxmacros.h>
 
-#pragma once
+namespace {
+    TEST(MACROS, bip44path1) {
+        uint32_t path[] = {44, 60, 0, 0, 1};
 
-#include <stdint.h>
-#include <stddef.h>
+        char buffer[100];
+        bip44_to_str(buffer, sizeof(buffer), path);
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+        EXPECT_EQ("44/60/0/0/1", std::string(buffer));
+    }
 
-size_t parseHexString(uint8_t *out, uint16_t outLen, const char *input);
+    TEST(MACROS, bip44path2) {
+        uint32_t path[] = {0x8000002c, 60, 0, 0, 1};
 
-#ifdef __cplusplus
+        char buffer[100];
+        bip44_to_str(buffer, sizeof(buffer), path);
+
+        EXPECT_EQ("44'/60/0/0/1", std::string(buffer));
+    }
+
+    TEST(MACROS, bip44path3) {
+        uint32_t path[] = {0x8000002c, 60, 0, 0, 0x80000001};
+
+        char buffer[100];
+        bip44_to_str(buffer, sizeof(buffer), path);
+
+        EXPECT_EQ("44'/60/0/0/1'", std::string(buffer));
+    }
 }
-#endif

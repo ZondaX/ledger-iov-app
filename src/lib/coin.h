@@ -1,6 +1,5 @@
 /*******************************************************************************
-*   (c) 2019 ZondaX GmbH
-*   (c) 2016 Ledger
+*  (c) 2019 ZondaX GmbH
 *
 *  Licensed under the Apache License, Version 2.0 (the "License");
 *  you may not use this file except in compliance with the License.
@@ -16,27 +15,30 @@
 ********************************************************************************/
 #pragma once
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include <stdint.h>
+#include <stddef.h>
 
-#if defined(LEDGER_SPECIFIC)
-#include "bolos_target.h"
-#if defined(BOLOS_SDK)
-#include "os.h"
-#include "cx.h"
+#define HDPATH_0_DEFAULT     (0x80000000u | 0x2cu)
+#define HDPATH_1_DEFAULT     (0x80000000u | 0xeau)
+
+#define APP_MAINNET_HRP          "iov"
+#define APP_MAINNET_CHAINID      "iov-mainnet"
+#define APP_MAINNET_CHAINID_LEN   11
+
+#define APP_TESTNET_HRP          "tiov"
+
+#define IOV_PK_PREFIX      "sigs/ed25519/"
+#define IOV_PK_PREFIX_LEN  13
+#define IOV_TICKER_MAXLEN   5
+#define IOV_ADDR_MAXLEN    45
+
+#define IOV_WHOLE_DIGITS   15
+#define IOV_FRAC_DIGITS    9
+
+#ifdef __cplusplus
+}
 #endif
-#endif
-
-/// view_init (initializes UI)
-void view_init();
-
-/// view_idle_show (idle view - main menu + status)
-void view_idle_show(unsigned int ignored);
-
-/// view_error (error view)
-void view_error_show();
-
-// shows address in the screen
-void view_address_show();
-
-// Shows review screen + later sign menu
-void view_sign_show();

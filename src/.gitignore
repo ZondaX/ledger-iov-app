@@ -44,5 +44,3 @@ src/glyphs\.c
 obj/
 bin/
 debug/
-
-pkg/zxtool.sh

@@ -14,7 +14,7 @@
 *  limitations under the License.
 ********************************************************************************/
 #pragma once
-#include "iov.h"
+#include "coin.h"
 
 //version | len(chainID) | chainID      | nonce             | signBytes
 //4bytes  | uint8        | ascii string | int64 (bigendian) | serialized transaction

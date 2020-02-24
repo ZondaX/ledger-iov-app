@@ -17,6 +17,7 @@
 
 #include "view.h"
 #include "view_internal.h"
+#include "crypto.h"
 
 #include "actions.h"
 #include "apdu_codes.h"
@@ -30,7 +31,6 @@
 #include <stdio.h>
 
 view_t viewdata;
-const char *address;
 
 void h_address_accept(unsigned int _) {
     UNUSED(_);
@@ -54,8 +54,13 @@ void h_sign_accept(unsigned int _) {
     view_idle_show(0);
     UX_WAIT();
 
-    set_code(G_io_apdu_buffer, replyLen, APDU_CODE_OK);
-    io_exchange(CHANNEL_APDU | IO_RETURN_AFTER_TX, replyLen + 2);
+    if (replyLen > 0) {
+        set_code(G_io_apdu_buffer, replyLen, APDU_CODE_OK);
+        io_exchange(CHANNEL_APDU | IO_RETURN_AFTER_TX, replyLen + 2);
+    } else {
+        set_code(G_io_apdu_buffer, 0, APDU_CODE_SIGN_VERIFY_ERROR);
+        io_exchange(CHANNEL_APDU | IO_RETURN_AFTER_TX, 2);
+    }
 }
 
 void h_sign_reject(unsigned int _) {
@@ -115,6 +120,22 @@ view_error_t h_review_update_data() {
     return view_no_error;
 }
 
+view_error_t h_addr_update_item(uint8_t idx) {
+    MEMZERO(viewdata.addr, MAX_CHARS_ADDR);
+    switch (idx) {
+        case 0:
+            snprintf(viewdata.addr, MAX_CHARS_ADDR, "%s", (char *) (G_io_apdu_buffer + PK_LEN));
+            break;
+        case 1:
+            snprintf(viewdata.addr, MAX_CHARS_ADDR, "%d%s%d%s%d%s",
+                     hdPath[0] & 0x7FFFFFFFu, (hdPath[0] & 0x80000000u) != 0 ? "'/" : "/",
+                     hdPath[1] & 0x7FFFFFFFu, (hdPath[1] & 0x80000000u) != 0 ? "'/" : "/",
+                     hdPath[2] & 0x7FFFFFFFu, (hdPath[2] & 0x80000000u) != 0 ? "'" : "");
+            break;
+    }
+    return view_no_error;
+}
+
 void io_seproxyhal_display(const bagl_element_t *element) {
     io_seproxyhal_display_default((bagl_element_t *) element);
 }
@@ -128,8 +149,6 @@ void view_idle_show(unsigned int ignored) {
 }
 
 void view_address_show() {
-    // Address has been placed in the output buffer
-    address = (char *) (G_io_apdu_buffer + 32);
     view_address_show_impl();
 }
 

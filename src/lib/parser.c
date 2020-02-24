@@ -17,7 +17,14 @@
 #include <stdio.h>
 #include <zxmacros.h>
 #include "parser.h"
-#include "iov.h"
+#include "coin.h"
+
+#if defined(TARGET_NANOX)
+// For some reason NanoX requires this function
+void __assert_fail(const char * assertion, const char * file, unsigned int line, const char * function){
+    while(1) {};
+}
+#endif
 
 #ifdef MAINNET_ENABLED
 #define FIELD_TOTAL_FIXCOUNT 5
@@ -49,13 +56,13 @@
 #define UI_BUFFER 256
 
 parser_error_t parser_parse(parser_context_t *ctx,
-                            uint8_t *data,
+                            const uint8_t *data,
                             uint16_t dataLen) {
     parser_init(ctx, data, dataLen);
     return parser_Tx(ctx);
 }
 
-parser_error_t parser_validate(bool_t isMainnet) {
+parser_error_t parser_validate(const parser_context_t *ctx, bool_t isMainnet) {
     if (isMainnet != parser_IsMainnet(parser_tx_obj.chainID, parser_tx_obj.chainIDLen)) {
         return parser_unexpected_chain;
     }
@@ -67,7 +74,7 @@ parser_error_t parser_validate(bool_t isMainnet) {
     return parser_ok;
 }
 
-uint8_t parser_getNumItems(parser_context_t *ctx) {
+uint8_t parser_getNumItems(const parser_context_t *ctx) {
     uint8_t fields = FIELD_TOTAL_FIXCOUNT;
     fields += parser_tx_obj.multisig.count;
     if (parser_tx_obj.sendmsg.memoLen == 0)
@@ -77,7 +84,7 @@ uint8_t parser_getNumItems(parser_context_t *ctx) {
 
 uint8_t UI_buffer[UI_BUFFER];
 
-int8_t parser_mapDisplayIdx(parser_context_t *ctx, int8_t displayIdx) {
+int8_t parser_mapDisplayIdx(const parser_context_t *ctx, int8_t displayIdx) {
     if (parser_tx_obj.sendmsg.memoLen == 0 && displayIdx >= FIELD_MEMO) {
         // SKIP Memo Field
         return displayIdx + 1;
@@ -85,7 +92,7 @@ int8_t parser_mapDisplayIdx(parser_context_t *ctx, int8_t displayIdx) {
     return displayIdx;
 }
 
-parser_error_t parser_getItem(parser_context_t *ctx,
+parser_error_t parser_getItem(const parser_context_t *ctx,
                               int8_t displayIdx,
                               char *outKey, uint16_t outKeyLen,
                               char *outValue, uint16_t outValueLen,

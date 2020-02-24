@@ -17,24 +17,32 @@
 #pragma once
 
 #include <zxmacros.h>
+#include "coin.h"
+#include <stdbool.h>
+#include <sigutils.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-#define BIP32_LEN_DEFAULT 3
-#define ED25519_PK_LEN 32
+#define HDPATH_LEN_DEFAULT   3
+#define ED25519_PK_LEN      32
+#define PK_LEN              ED25519_PK_LEN
 
-extern uint32_t bip32Path[BIP32_LEN_DEFAULT];
+extern uint32_t hdPath[HDPATH_LEN_DEFAULT];
 extern char *hrp;
 
-void crypto_extractPublicKey(uint32_t bip32Path[BIP32_LEN_DEFAULT], uint8_t *pubKey);
 
 void crypto_set_hrp(char *p);
 
-uint16_t crypto_fillAddress(uint8_t *buffer, uint16_t buffer_len);
+void crypto_extractPublicKey(const uint32_t path[HDPATH_LEN_DEFAULT], uint8_t *pubKey, uint16_t pubKeyLen);
 
-uint16_t crypto_sign(uint8_t *signature, uint16_t signatureMaxlen, const uint8_t *message, uint16_t messageLen);
+uint16_t crypto_fillAddress(uint8_t *buffer, uint16_t bufferLen);
+
+uint16_t crypto_sign(uint8_t *signature,
+                     uint16_t signatureMaxlen,
+                     const uint8_t *message,
+                     uint16_t messageLen);
 
 #ifdef __cplusplus
 }

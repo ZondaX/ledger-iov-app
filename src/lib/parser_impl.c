@@ -15,10 +15,10 @@
 ********************************************************************************/
 
 #include <zxmacros.h>
-#include <bech32.h>
 #include "parser_impl.h"
 #include "parser_txdef.h"
-#include "iov.h"
+#include <bech32.h>
+#include "coin.h"
 
 parser_tx_t parser_tx_obj;
 
@@ -31,12 +31,12 @@ parser_error_t parser_init_context(parser_context_t *ctx,
     if (bufferSize == 0 || buffer == NULL) {
         // Not available, use defaults
         ctx->buffer = NULL;
-        ctx->bufferSize = 0;
+        ctx->bufferLen = 0;
         return parser_no_data;
     }
 
     ctx->buffer = buffer;
-    ctx->bufferSize = bufferSize;
+    ctx->bufferLen = bufferSize;
 
     return parser_ok;
 }
@@ -53,6 +53,7 @@ parser_error_t parser_init(parser_context_t *ctx, const uint8_t *buffer, uint16_
 
 const char *parser_getErrorDescription(parser_error_t err) {
     switch (err) {
+        // General errors
         case parser_ok:
             return "No error";
         case parser_no_data:
@@ -83,7 +84,7 @@ parser_error_t _readRawVarint(parser_context_t *ctx, uint64_t *value) {
     uint16_t consumed = 0;
 
     const uint8_t *p = ctx->buffer + offset;
-    const uint8_t *end = ctx->buffer + ctx->bufferSize + 1;
+    const uint8_t *end = ctx->buffer + ctx->bufferLen + 1;
     *value = 0;
 
     // Extract value
@@ -194,7 +195,7 @@ parser_error_t _readArray(parser_context_t *ctx, const uint8_t **s, uint16_t *st
     *stringLen = tmpValue;
 
     // check that the returned buffer is not out of bounds
-    if (ctx->offset + ctx->lastConsumed + *stringLen > ctx->bufferSize) {
+    if (ctx->offset + ctx->lastConsumed + *stringLen > ctx->bufferLen) {
         ctx->lastConsumed = 0;
         return parser_unexpected_buffer_end;
     }
@@ -263,7 +264,7 @@ parser_error_t parser_readPB_Metadata(const uint8_t *bufferPtr,
     DEFINE_CONTEXT()
 
     uint64_t v;
-    while (ctx.offset < ctx.bufferSize && err == parser_ok) {
+    while (ctx.offset < ctx.bufferLen && err == parser_ok) {
         err = _readRawVarint(&ctx, &v);
         if (err != parser_ok) {
             return err;
@@ -290,7 +291,7 @@ parser_error_t parser_readPB_Coin(const uint8_t *bufferPtr,
     DEFINE_CONTEXT()
 
     uint64_t v;
-    while (ctx.offset < ctx.bufferSize && err == parser_ok) {
+    while (ctx.offset < ctx.bufferLen && err == parser_ok) {
         err = _readRawVarint(&ctx, &v);
         if (err != parser_ok) {
             return err;
@@ -339,7 +340,7 @@ parser_error_t parser_readPB_Fees(const uint8_t *bufferPtr,
     DEFINE_CONTEXT()
 
     uint64_t v;
-    while (ctx.offset < ctx.bufferSize && err == parser_ok) {
+    while (ctx.offset < ctx.bufferLen && err == parser_ok) {
         err = _readRawVarint(&ctx, &v);
         if (err != parser_ok) {
             return err;
@@ -402,7 +403,7 @@ parser_error_t parser_readPB_SendMsg(const uint8_t *bufferPtr,
     DEFINE_CONTEXT()
 
     uint64_t v;
-    while (ctx.offset < ctx.bufferSize && err == parser_ok) {
+    while (ctx.offset < ctx.bufferLen && err == parser_ok) {
         err = _readRawVarint(&ctx, &v);
         if (err != parser_ok) {
             return err;
@@ -456,7 +457,7 @@ parser_error_t parser_readPB_SendMsg(const uint8_t *bufferPtr,
 parser_error_t parser_readPB_Root(parser_context_t *ctx) {
     parser_error_t err = parser_ok;
     uint64_t v;
-    while (ctx->offset < ctx->bufferSize && err == parser_ok) {
+    while (ctx->offset < ctx->bufferLen && err == parser_ok) {
 
         err = _readRawVarint(ctx, &v);
         if (err != parser_ok) {
@@ -495,7 +496,7 @@ parser_error_t parser_readRoot(parser_context_t *ctx) {
     //version | len(chainID) | chainID      | nonce             | signBytes
     //4bytes  | uint8        | ascii string | int64 (bigendian) | serialized transaction
 
-    if (ctx->bufferSize < TX_BUFFER_MIN) {
+    if (ctx->bufferLen < TX_BUFFER_MIN) {
         return parser_unexpected_buffer_end;
     }
 
@@ -528,7 +529,7 @@ parser_error_t parser_readRoot(parser_context_t *ctx) {
 
     ctx->lastConsumed = 5 + parser_tx_obj.chainIDLen + 8;
 
-    if (ctx->lastConsumed > ctx->bufferSize) {
+    if (ctx->lastConsumed > ctx->bufferLen) {
         return parser_unexpected_buffer_end;
     }
 

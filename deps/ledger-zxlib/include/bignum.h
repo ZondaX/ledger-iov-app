@@ -1,5 +1,5 @@
 /*******************************************************************************
-*  (c) 2019 ZondaX GmbH
+*   (c) 2019 ZondaX GmbH
 *
 *  Licensed under the Apache License, Version 2.0 (the "License");
 *  you may not use this file except in compliance with the License.
@@ -13,33 +13,22 @@
 *  See the License for the specific language governing permissions and
 *  limitations under the License.
 ********************************************************************************/
+
 #pragma once
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-#include <stdint.h>
-#include <stddef.h>
+#include <zxmacros.h>
+#include <zxtypes.h>
 
-typedef enum {
-    bool_false = 0,
-    bool_true = 1,
-} bool_t;
+bool_t bignumLittleEndian_bcdprint(char *outBuffer, uint16_t outBufferLen, const uint8_t *inBCD, uint16_t inBCDLen);
+void bignumLittleEndian_to_bcd(uint8_t *bcdOut, uint16_t bcdOutLen, const uint8_t *binValue, uint16_t binValueLen);
 
-#define APP_MAINNET_HRP          "iov"
-#define APP_MAINNET_CHAINID      "iov-mainnet"
-#define APP_MAINNET_CHAINID_LEN   11
+bool_t bignumBigEndian_bcdprint(char *outBuffer, uint16_t outBufferLen, const uint8_t *bcdIn, uint16_t bcdInLen);
+void bignumBigEndian_to_bcd(uint8_t *bcdOut, uint16_t bcdOutLen, const uint8_t *binValue, uint16_t binValueLen);
 
-#define APP_TESTNET_HRP          "tiov"
-
-#define IOV_PK_PREFIX      "sigs/ed25519/"
-#define IOV_PK_PREFIX_LEN  13
-#define IOV_TICKER_MAXLEN   5
-#define IOV_ADDR_MAXLEN    45
-
-#define IOV_WHOLE_DIGITS   15
-#define IOV_FRAC_DIGITS    9
 
 #ifdef __cplusplus
 }

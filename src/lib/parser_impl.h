@@ -15,6 +15,9 @@
 ********************************************************************************/
 #pragma once
 
+#include <zxtypes.h>
+#include "parser_common.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -22,27 +25,6 @@ extern "C" {
 #include <stdint.h>
 #include <stddef.h>
 #include "parser_txdef.h"
-
-typedef enum {
-    parser_ok = 0,
-    parser_no_data = 1,
-    parser_unexpected_buffer_end = 2,
-    parser_unexpected_wire_type = 3,
-    parser_unexpected_version = 4,
-    parser_unexpected_characters = 5,
-    parser_unexpected_field = 6,
-    parser_duplicated_field = 7,
-    parser_value_out_of_range = 8,
-    parser_unexpected_chain = 9,
-    parser_unexpected_field_length = 10,
-} parser_error_t;
-
-typedef struct {
-    const uint8_t *buffer;
-    uint16_t bufferSize;
-    uint16_t offset;
-    uint16_t lastConsumed;
-} parser_context_t;
 
 extern parser_tx_t parser_tx_obj;
 

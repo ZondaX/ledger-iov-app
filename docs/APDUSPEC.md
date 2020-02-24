@@ -96,14 +96,15 @@ The general structure of commands and responses is as follows:
 | ----- | -------- | ---------------------- | --------- |
 | CLA   | byte (1) | Application Identifier | 0x22      |
 | INS   | byte (1) | Instruction ID         | 0x02      |
-| P1    | byte (1) | Packet Current Index   |           |
-| P2    | byte (1) | Packet Total Count     |
-|       |
+| P1    | byte (1) | Payload desc           | 0 = init  |
+|       |          |                        | 1 = add   |
+|       |          |                        | 2 = last  |
+| P2    | byte (1) | ----                   | not used  |
 | L     | byte (1) | Bytes in payload       | (depends) |
 
-The first packet/chunk includes parameters
+The first packet/chunk includes only the derivation path
 
-All other packets/chunks should contain message to sign
+All other packets/chunks contain data chunks that are described below
 
 *First Packet*
 
@@ -117,7 +118,13 @@ All other packets/chunks should contain message to sign
 
 | Field   | Type     | Content         | Expected |
 | ------- | -------- | --------------- | -------- |
-| Payload Chunk | bytes... | Payload to Sign |          |
+| Data    | bytes... | Message         |          |
+
+Data is defined as:
+
+| Field   | Type     | Content         | Expected |
+| ------- | -------- | --------------- | -------- |
+| Message | bytes..  | Payload to sign |          |
 
 #### Response
 

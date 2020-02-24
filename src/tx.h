@@ -16,7 +16,8 @@
 #pragma once
 
 #include "os.h"
-#include "iov.h"
+#include "zxtypes.h"
+#include "coin.h"
 
 typedef enum {
     tx_no_error = 0,

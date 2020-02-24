@@ -1,6 +1,6 @@
 /*******************************************************************************
+*   (c) 2018, 2019 ZondaX GmbH
 *   (c) 2016 Ledger
-*   (c) 2019 ZondaX GmbH
 *
 *  Licensed under the Apache License, Version 2.0 (the "License");
 *  you may not use this file except in compliance with the License.
@@ -20,11 +20,12 @@
 #include <string.h>
 #include <os_io_seproxyhal.h>
 #include <os.h>
+
 #include "view.h"
 #include "actions.h"
 #include "tx.h"
 #include "lib/crypto.h"
-#include "lib/iov.h"
+#include "coin.h"
 #include "zxmacros.h"
 
 unsigned char G_io_seproxyhal_spi_buffer[IO_SEPROXYHAL_BUFFER_SIZE_B];
@@ -46,9 +47,9 @@ unsigned char io_event(unsigned char channel) {
 
         case SEPROXYHAL_TAG_TICKER_EVENT: { //
             UX_TICKER_EVENT(G_io_seproxyhal_spi_buffer, {
-                if (UX_ALLOWED) {
-                    UX_REDISPLAY();
-                }
+                    if (UX_ALLOWED) {
+                        UX_REDISPLAY();
+                    }
             });
             break;
         }
@@ -89,50 +90,60 @@ unsigned short io_exchange_al(unsigned char channel, unsigned short tx_len) {
     return 0;
 }
 
-void extractBip32(uint32_t rx, uint32_t offset) {
-    if ((rx - offset) < 4 * BIP32_LEN_DEFAULT) {
-        THROW(APDU_CODE_DATA_INVALID);
+void extractHDPath(uint32_t rx, uint32_t offset) {
+    if ((rx - offset) < sizeof(uint32_t) * HDPATH_LEN_DEFAULT) {
+        THROW(APDU_CODE_WRONG_LENGTH);
     }
 
-    memcpy(bip32Path, G_io_apdu_buffer + offset, 4 * BIP32_LEN_DEFAULT);
+    MEMCPY(hdPath, G_io_apdu_buffer + offset, sizeof(uint32_t) * HDPATH_LEN_DEFAULT);
 
     // Check values
-    if (bip32Path[0] != BIP32_PATH_0 ||
-        bip32Path[1] != BIP32_PATH_1) {
+    if (hdPath[0] != HDPATH_0_DEFAULT ||
+        hdPath[1] != HDPATH_1_DEFAULT) {
         THROW(APDU_CODE_DATA_INVALID);
     }
 
     // Check all items are hardened
-    for (int i = 0; i < BIP32_LEN_DEFAULT; i++) {
-        if ( (bip32Path[i] & 0x80000000) == 0) {
+    for (int i = 0; i < HDPATH_LEN_DEFAULT; i++) {
+        if ( (hdPath[i] & 0x80000000) == 0) {
             THROW(APDU_CODE_DATA_INVALID);
         }
     }
 }
 
-bool process_chunk(volatile uint32_t *tx, uint32_t rx, bool getBip32) {
-    int packageIndex = G_io_apdu_buffer[OFFSET_PCK_INDEX];
-    int packageCount = G_io_apdu_buffer[OFFSET_PCK_COUNT];
+bool process_chunk(volatile uint32_t *tx, uint32_t rx) {
+    const uint8_t payloadType = G_io_apdu_buffer[OFFSET_PAYLOAD_TYPE];
 
-    uint16_t offset = OFFSET_DATA;
-    if (rx < offset) {
-        THROW(APDU_CODE_DATA_INVALID);
+    if (G_io_apdu_buffer[OFFSET_P2] != 0) {
+        THROW(APDU_CODE_INVALIDP1P2);
     }
 
-    if (packageIndex == 1) {
-        tx_initialize();
-        tx_reset();
-
-        extractBip32(rx, OFFSET_DATA);
-
-        return packageIndex == packageCount;
+    if (rx < OFFSET_DATA) {
+        THROW(APDU_CODE_WRONG_LENGTH);
     }
 
-    if (tx_append(&(G_io_apdu_buffer[offset]), rx - offset) != rx - offset) {
-        THROW(APDU_CODE_OUTPUT_BUFFER_TOO_SMALL);
+    uint32_t added;
+    switch (payloadType) {
+        case 0:
+            tx_initialize();
+            tx_reset();
+            extractHDPath(rx, OFFSET_DATA);
+            return false;
+        case 1:
+            added = tx_append(&(G_io_apdu_buffer[OFFSET_DATA]), rx - OFFSET_DATA);
+            if (added != rx - OFFSET_DATA) {
+                THROW(APDU_CODE_OUTPUT_BUFFER_TOO_SMALL);
+            }
+            return false;
+        case 2:
+            added = tx_append(&(G_io_apdu_buffer[OFFSET_DATA]), rx - OFFSET_DATA);
+            if (added != rx - OFFSET_DATA) {
+                THROW(APDU_CODE_OUTPUT_BUFFER_TOO_SMALL);
+            }
+            return true;
     }
 
-    return packageIndex == packageCount;
+    THROW(APDU_CODE_INVALIDP1P2);
 }
 
 void handleApdu(volatile uint32_t *flags, volatile uint32_t *tx, uint32_t rx) {
@@ -162,13 +173,18 @@ void handleApdu(volatile uint32_t *flags, volatile uint32_t *tx, uint32_t rx) {
                     G_io_apdu_buffer[3] = LEDGER_PATCH_VERSION;
                     G_io_apdu_buffer[4] = !IS_UX_ALLOWED;
 
-                    *tx += 5;
+                    G_io_apdu_buffer[5] = (TARGET_ID >> 24) & 0xFF;
+                    G_io_apdu_buffer[6] = (TARGET_ID >> 16) & 0xFF;
+                    G_io_apdu_buffer[7] = (TARGET_ID >> 8) & 0xFF;
+                    G_io_apdu_buffer[8] = (TARGET_ID >> 0) & 0xFF;
+
+                    *tx += 9;
                     THROW(APDU_CODE_OK);
                     break;
                 }
 
                 case INS_GET_ADDR_ED25519: {
-                    extractBip32(rx, OFFSET_DATA);
+                    extractHDPath(rx, OFFSET_DATA);
 
                     uint8_t requireConfirmation = G_io_apdu_buffer[OFFSET_P1];
 
@@ -191,7 +207,7 @@ void handleApdu(volatile uint32_t *flags, volatile uint32_t *tx, uint32_t rx) {
                 }
 
                 case INS_SIGN_ED25519: {
-                    if (!process_chunk(tx, rx, true))
+                    if (!process_chunk(tx, rx))
                         THROW(APDU_CODE_OK);
 
 #ifdef MAINNET_ENABLED
@@ -203,7 +219,7 @@ void handleApdu(volatile uint32_t *flags, volatile uint32_t *tx, uint32_t rx) {
 
                     if (error_msg != NULL) {
                         int error_msg_length = strlen(error_msg);
-                        os_memmove(G_io_apdu_buffer, error_msg, error_msg_length);
+                        MEMCPY(G_io_apdu_buffer, error_msg, error_msg_length);
                         *tx += (error_msg_length);
                         THROW(APDU_CODE_DATA_INVALID);
                     }
@@ -243,6 +259,31 @@ void handleApdu(volatile uint32_t *flags, volatile uint32_t *tx, uint32_t rx) {
     END_TRY;
 }
 
+void handle_generic_apdu(volatile uint32_t *flags, volatile uint32_t *tx, uint32_t rx) {
+    if (rx > 4 && os_memcmp(G_io_apdu_buffer, "\xE0\x01\x00\x00", 4) == 0) {
+        // Respond to get device info command
+        uint8_t *p = G_io_apdu_buffer;
+        // Target ID        4 bytes
+        p[0] = (TARGET_ID >> 24) & 0xFF;
+        p[1] = (TARGET_ID >> 16) & 0xFF;
+        p[2] = (TARGET_ID >> 8) & 0xFF;
+        p[3] = (TARGET_ID >> 0) & 0xFF;
+        p += 4;
+        // SE Version       [length][non-terminated string]
+        *p = os_version(p + 1, 64);
+        p = p + 1 + *p;
+        // Flags            [length][flags]
+        *p = 0;
+        p++;
+        // MCU Version      [length][non-terminated string]
+        *p = os_seph_version(p + 1, 64);
+        p = p + 1 + *p;
+
+        *tx = p - G_io_apdu_buffer;
+        THROW(APDU_CODE_OK);
+    }
+}
+
 void app_init() {
     io_seproxyhal_init();
     USB_power(0);
@@ -270,6 +311,8 @@ void app_main() {
 
                 if (rx == 0)
                     THROW(APDU_CODE_EMPTY_BUFFER);
+
+                handle_generic_apdu(&flags, &tx, rx);
 
                 handleApdu(&flags, &tx, rx);
             }
