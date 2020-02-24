@@ -64,6 +64,10 @@ parser_error_t parser_readPB_SendMsg(const uint8_t *bufferPtr,
                                      uint16_t bufferLen,
                                      parser_sendmsg_t *sendmsg);
 
+parser_error_t parser_readPB_VoteMsg(const uint8_t *bufferPtr,
+                                     uint16_t bufferLen,
+                                     parser_votemsg_t *votemsg);
+
 parser_error_t parser_readPB_Root(parser_context_t *ctx);
 
 parser_error_t parser_readRoot(parser_context_t *ctx);

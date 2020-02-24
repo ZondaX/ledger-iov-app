@@ -78,6 +78,25 @@ void parser_sendmsgInit(parser_sendmsg_t *msg) {
     msg->refLen = 0;
 }
 
+void parser_votemsgInit(parser_votemsg_t *msg) {
+    msg->seen.metadata = 0;
+    msg->seen.id = 0;
+    msg->seen.voter = 0;
+    msg->seen.voteOption = 0;
+
+    msg->metadataPtr = NULL;
+    msg->metadataLen = 0;
+    parser_metadataInit(&msg->metadata);
+
+    msg->idPtr = NULL;
+    msg->idLen = 0;
+
+    msg->voterPtr = NULL;
+    msg->voterLen = 0;
+
+    msg->voteOption = 0;
+}
+
 void parser_txInit(parser_tx_t *tx) {
     tx->seen.fees = 0;
     tx->seen.sendmsg = 0;
@@ -86,6 +105,7 @@ void parser_txInit(parser_tx_t *tx) {
     tx->chainIDLen = 0;
     tx->chainID = NULL;
     tx->nonce = 0;
+    tx->type = Msg_Invalid;
 
     tx->feesPtr = NULL;
     tx->feesLen = 0;
@@ -98,4 +118,8 @@ void parser_txInit(parser_tx_t *tx) {
     tx->sendmsgPtr = NULL;
     tx->sendmsgLen = 0;
     parser_sendmsgInit(&tx->sendmsg);
+
+    tx->votemsgPtr = NULL;
+    tx->votemsgLen = 0;
+    parser_votemsgInit(&tx->votemsg);
 }

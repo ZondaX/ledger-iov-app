@@ -451,6 +451,61 @@ parser_error_t parser_readPB_SendMsg(const uint8_t *bufferPtr,
     if (err != parser_ok) return err;
 
     err = parser_readPB_Coin(sendmsg->amountPtr, sendmsg->amountLen, &sendmsg->amount);
+    if (err != parser_ok) return err;
+
+    //Set type of message
+    parser_tx_obj.type = Msg_Send;
+
+    return err;
+}
+
+
+parser_error_t parser_readPB_VoteMsg(const uint8_t *bufferPtr,
+                                     uint16_t bufferLen,
+                                     parser_votemsg_t *votemsg) {
+    DEFINE_CONTEXT()
+
+    uint64_t v;
+    while (ctx.offset < ctx.bufferLen && err == parser_ok) {
+        err = _readRawVarint(&ctx, &v);
+        if (err != parser_ok) {
+            return err;
+        }
+
+        switch (FIELD_NUM(v)) {
+            case PBIDX_VOTEMSG_METADATA: {
+                CHECK_NOT_DUPLICATED(votemsg->seen.metadata)
+                READ_ARRAY(votemsg->metadata)
+                break;
+            }
+            case PBIDX_VOTEMSG_ID: {
+                CHECK_NOT_DUPLICATED(votemsg->seen.id)
+                READ_ARRAY(votemsg->id)
+                uint16_t  temp = *(votemsg->idPtr + 7);
+                break;
+            }
+            case PBIDX_VOTEMSG_VOTER: {
+                CHECK_NOT_DUPLICATED(votemsg->seen.voter)
+                READ_ARRAY(votemsg->voter)
+                break;
+            }
+            case PBIDX_VOTEMSG_VOTE: {
+                CHECK_NOT_DUPLICATED(votemsg->seen.voteOption)
+                READ_UINT32(votemsg->voteOption)
+                break;
+            }
+            default:
+                // Unknown fields are rejected to avoid malleability
+                return parser_unexpected_field;
+        }
+    }
+
+    err = parser_readPB_Metadata(votemsg->metadataPtr, votemsg->metadataLen, &votemsg->metadata);
+    if (err != parser_ok) return err;
+
+    //Set type of message
+    parser_tx_obj.type = Msg_Vote;
+
     return err;
 }
 
@@ -480,6 +535,11 @@ parser_error_t parser_readPB_Root(parser_context_t *ctx) {
             case PBIDX_TX_SENDMSG: {
                 CHECK_NOT_DUPLICATED(parser_tx_obj.seen.sendmsg)
                 err = _readArray(ctx, &parser_tx_obj.sendmsgPtr, &parser_tx_obj.sendmsgLen);
+                break;
+            }
+            case PBIDX_TX_VOTEMSG: {
+                CHECK_NOT_DUPLICATED(parser_tx_obj.seen.votemsg)
+                err = _readArray(ctx, &parser_tx_obj.votemsgPtr, &parser_tx_obj.votemsgLen);
                 break;
             }
             default:
@@ -564,6 +624,11 @@ parser_error_t parser_Tx(parser_context_t *ctx) {
     err = parser_readPB_SendMsg(parser_tx_obj.sendmsgPtr,
                                 parser_tx_obj.sendmsgLen,
                                 &parser_tx_obj.sendmsg);
+    if (err != parser_ok) return err;
+
+    err = parser_readPB_VoteMsg(parser_tx_obj.votemsgPtr,
+                                parser_tx_obj.votemsgLen,
+                                &parser_tx_obj.votemsg);
     if (err != parser_ok) return err;
 
     return parser_ok;

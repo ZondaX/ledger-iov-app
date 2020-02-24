@@ -36,14 +36,22 @@ void __assert_fail(const char * assertion, const char * file, unsigned int line,
 #define FIELD_FEE 3
 #define FIELD_MEMO 4
 #else
-#define FIELD_TOTAL_FIXCOUNT 6
+#define FIELD_TOTAL_FIXCOUNT_SENDMSG 6
+#define FIELD_TOTAL_FIXCOUNT_VOTEMSG 4
 
+//Common fields
 #define FIELD_CHAINID 0
+
+//Fields for TxSend
 #define FIELD_SOURCE 1
 #define FIELD_DESTINATION 2
 #define FIELD_AMOUNT 3
 #define FIELD_FEE 4
 #define FIELD_MEMO 5
+//Fields for TxVote
+#define FIELD_PROPOSAL_ID 1
+#define FIELD_VOTER 2
+#define FIELD_SELECTION 3
 #endif
 
 // * optional chainid for testnet mode
@@ -75,11 +83,23 @@ parser_error_t parser_validate(const parser_context_t *ctx, bool_t isMainnet) {
 }
 
 uint8_t parser_getNumItems(const parser_context_t *ctx) {
-    uint8_t fields = FIELD_TOTAL_FIXCOUNT;
-    fields += parser_tx_obj.multisig.count;
-    if (parser_tx_obj.sendmsg.memoLen == 0)
-        fields--;
-    return fields;
+
+    uint8_t fields = 0;
+    switch(parser_tx_obj.type)
+    {
+        case Msg_Send:
+            fields = FIELD_TOTAL_FIXCOUNT_SENDMSG;
+            fields += parser_tx_obj.multisig.count;
+            if (parser_tx_obj.sendmsg.memoLen == 0)
+                fields--;
+            return fields;
+        case Msg_Vote:
+            fields = FIELD_TOTAL_FIXCOUNT_VOTEMSG;
+            fields += parser_tx_obj.multisig.count;
+            return fields;
+        default:
+            return fields;
+    }
 }
 
 uint8_t UI_buffer[UI_BUFFER];
@@ -105,90 +125,143 @@ parser_error_t parser_getItem(const parser_context_t *ctx,
 
     parser_error_t err = parser_ok;
     *pageCount = 1;
-    switch (parser_mapDisplayIdx(ctx, displayIdx)) {
-        case FIELD_CHAINID:     // ChainID
-            snprintf(outKey, outKeyLen, "ChainID");
-            parser_arrayToString(outValue, outValueLen,
-                                 parser_tx_obj.chainID, parser_tx_obj.chainIDLen,
-                                 pageIdx, pageCount);
-            break;
-        case FIELD_SOURCE:     // Source
-            snprintf(outKey, outKeyLen, "Source");
-            err = parser_getAddress(parser_tx_obj.chainID, parser_tx_obj.chainIDLen,
-                                    (char *) UI_buffer, UI_BUFFER,
-                                    parser_tx_obj.sendmsg.sourcePtr,
-                                    parser_tx_obj.sendmsg.sourceLen);
-            // page it
-            parser_arrayToString(outValue, outValueLen, UI_buffer,
-                                 strlen((char *) UI_buffer), pageIdx, pageCount);
-            break;
-        case FIELD_DESTINATION:     // Destination
-            snprintf(outKey, outKeyLen, "Dest");
-            err = parser_getAddress(parser_tx_obj.chainID, parser_tx_obj.chainIDLen,
-                                    (char *) UI_buffer, UI_BUFFER,
-                                    parser_tx_obj.sendmsg.destinationPtr,
-                                    parser_tx_obj.sendmsg.destinationLen);
-            // page it
-            parser_arrayToString(outValue, outValueLen, UI_buffer,
-                                 strlen((char *) UI_buffer), pageIdx, pageCount);
-            break;
-        case FIELD_AMOUNT: {
-            char ticker[IOV_TICKER_MAXLEN];
-            err = parser_arrayToString(ticker, IOV_TICKER_MAXLEN,
-                                       parser_tx_obj.sendmsg.amount.tickerPtr,
-                                       parser_tx_obj.sendmsg.amount.tickerLen,
-                                       0, NULL);
-            if (err != parser_ok)
-                return err;
 
-            snprintf(outKey, outKeyLen, "Amount [%s]", ticker);
-            err = parser_formatAmountFriendly(outValue,
-                                              outValueLen,
-                                              &parser_tx_obj.sendmsg.amount);
+    switch (parser_tx_obj.type)
+    {
+        case Msg_Send: {
+            switch (parser_mapDisplayIdx(ctx, displayIdx)) {
+                case FIELD_CHAINID:     // ChainID
+                    snprintf(outKey, outKeyLen, "ChainID");
+                    parser_arrayToString(outValue, outValueLen,
+                                         parser_tx_obj.chainID, parser_tx_obj.chainIDLen,
+                                         pageIdx, pageCount);
+                    break;
+                case FIELD_SOURCE:     // Source
+                    snprintf(outKey, outKeyLen, "Source");
+                    err = parser_getAddress(parser_tx_obj.chainID, parser_tx_obj.chainIDLen,
+                                            (char *) UI_buffer, UI_BUFFER,
+                                            parser_tx_obj.sendmsg.sourcePtr,
+                                            parser_tx_obj.sendmsg.sourceLen);
+                    // page it
+                    parser_arrayToString(outValue, outValueLen, UI_buffer,
+                                         strlen((char *) UI_buffer), pageIdx, pageCount);
+                    break;
+                case FIELD_DESTINATION:     // Destination
+                    snprintf(outKey, outKeyLen, "Dest");
+                    err = parser_getAddress(parser_tx_obj.chainID, parser_tx_obj.chainIDLen,
+                                            (char *) UI_buffer, UI_BUFFER,
+                                            parser_tx_obj.sendmsg.destinationPtr,
+                                            parser_tx_obj.sendmsg.destinationLen);
+                    // page it
+                    parser_arrayToString(outValue, outValueLen, UI_buffer,
+                                         strlen((char *) UI_buffer), pageIdx, pageCount);
+                    break;
+                case FIELD_AMOUNT: {
+                    char ticker[IOV_TICKER_MAXLEN];
+                    err = parser_arrayToString(ticker, IOV_TICKER_MAXLEN,
+                                               parser_tx_obj.sendmsg.amount.tickerPtr,
+                                               parser_tx_obj.sendmsg.amount.tickerLen,
+                                               0, NULL);
+                    if (err != parser_ok)
+                        return err;
+
+                    snprintf(outKey, outKeyLen, "Amount [%s]", ticker);
+                    err = parser_formatAmountFriendly(outValue,
+                                                      outValueLen,
+                                                      &parser_tx_obj.sendmsg.amount);
+                    break;
+                }
+                case FIELD_FEE: {
+                    char ticker[IOV_TICKER_MAXLEN];
+                    err = parser_arrayToString(ticker, IOV_TICKER_MAXLEN,
+                                               parser_tx_obj.fees.coin.tickerPtr,
+                                               parser_tx_obj.fees.coin.tickerLen,
+                                               0, NULL);
+                    if (err != parser_ok)
+                        return err;
+
+                    snprintf(outKey, outKeyLen, "Fees [%s]", ticker);
+                    err = parser_formatAmountFriendly(outValue,
+                                                      outValueLen,
+                                                      &parser_tx_obj.fees.coin);
+                    break;
+                }
+                case FIELD_MEMO: {     // Memo
+                    snprintf(outKey, outKeyLen, "Memo");
+                    err = parser_arrayToString((char *) UI_buffer, UI_BUFFER,
+                                               parser_tx_obj.sendmsg.memoPtr,
+                                               parser_tx_obj.sendmsg.memoLen,
+                                               0, NULL);
+                    asciify((char *) UI_buffer);
+                    // page it
+                    parser_arrayToString(outValue, outValueLen, UI_buffer,
+                                         strlen((char *) UI_buffer),
+                                         pageIdx, pageCount);
+                    break;
+                }
+                default: {
+                    // Handle variable fields
+                    if (displayIdx >= parser_getNumItems(ctx)) {
+                        *pageCount = 0;
+                        return parser_no_data;
+                    }
+
+                    // Map variable field to multisig
+                    uint8_t multisigIdx = displayIdx - FIELD_TOTAL_FIXCOUNT_SENDMSG;
+                    snprintf(outKey, outKeyLen, "Multisig");
+                    if (parser_tx_obj.multisig.count > 1) {
+                        snprintf(outKey, outKeyLen, "Multisig [%d/%d]", multisigIdx + 1, parser_tx_obj.multisig.count);
+                    }
+
+                    uint64_to_str(outValue, outValueLen, parser_tx_obj.multisig.values[multisigIdx]);
+                }
+            }
             break;
         }
-        case FIELD_FEE: {
-            char ticker[IOV_TICKER_MAXLEN];
-            err = parser_arrayToString(ticker, IOV_TICKER_MAXLEN,
-                                       parser_tx_obj.fees.coin.tickerPtr,
-                                       parser_tx_obj.fees.coin.tickerLen,
-                                       0, NULL);
-            if (err != parser_ok)
-                return err;
-
-            snprintf(outKey, outKeyLen, "Fees [%s]", ticker);
-            err = parser_formatAmountFriendly(outValue,
-                                              outValueLen,
-                                              &parser_tx_obj.fees.coin);
-            break;
+        case Msg_Vote: {
+            switch (parser_mapDisplayIdx(ctx, displayIdx)) {
+                case FIELD_CHAINID:     // ChainID
+                    snprintf(outKey, outKeyLen, "ChainID");
+                    parser_arrayToString(outValue, outValueLen,
+                                         parser_tx_obj.chainID, parser_tx_obj.chainIDLen,
+                                         pageIdx, pageCount);
+                    break;
+                case FIELD_VOTER: {     // Voter
+                    snprintf(outKey, outKeyLen, "Voter");
+                    err = parser_arrayToString((char *) UI_buffer, UI_BUFFER,
+                                               parser_tx_obj.votemsg.voterPtr,
+                                               parser_tx_obj.votemsg.voterLen,
+                                               0, NULL);
+                    asciify((char *) UI_buffer);
+                    // page it
+                    parser_arrayToString(outValue, outValueLen, UI_buffer,
+                                         strlen((char *) UI_buffer),
+                                         pageIdx, pageCount);
+                    break;
+                }
+                case FIELD_PROPOSAL_ID: { //Proposal Id
+                    snprintf(outKey, outKeyLen, "ProposalId");
+                    err = parser_arrayToString(outValue, outValueLen,
+                                               parser_tx_obj.votemsg.idPtr,
+                                               parser_tx_obj.votemsg.idLen,
+                                               0, NULL);
+                    if (err != parser_ok)
+                        return err;
+                    break;
+                }
+                case FIELD_SELECTION: { // Vote option
+                    //TODO
+                    break;
+                }
+                default: {
+                    // Handle variable fields
+                    if (displayIdx >= parser_getNumItems(ctx)) {
+                        *pageCount = 0;
+                        return parser_no_data;
+                    }
+                }
+            }
         }
-        case FIELD_MEMO:     // Memo
-            snprintf(outKey, outKeyLen, "Memo");
-            err = parser_arrayToString((char *) UI_buffer, UI_BUFFER,
-                                       parser_tx_obj.sendmsg.memoPtr,
-                                       parser_tx_obj.sendmsg.memoLen,
-                                       0, NULL);
-            asciify((char *) UI_buffer);
-            // page it
-            parser_arrayToString(outValue, outValueLen, UI_buffer,
-                                 strlen((char *) UI_buffer),
-                                 pageIdx, pageCount);
-            break;
-        default:
-            // Handle variable fields
-            if (displayIdx >= parser_getNumItems(ctx)) {
-                *pageCount = 0;
-                return parser_no_data;
-            }
-
-            // Map variable field to multisig
-            uint8_t multisigIdx = displayIdx - FIELD_TOTAL_FIXCOUNT;
-            snprintf(outKey, outKeyLen, "Multisig");
-            if (parser_tx_obj.multisig.count > 1) {
-                snprintf(outKey, outKeyLen, "Multisig [%d/%d]", multisigIdx + 1, parser_tx_obj.multisig.count);
-            }
-
-            uint64_to_str(outValue, outValueLen, parser_tx_obj.multisig.values[multisigIdx]);
     }
 
     return err;

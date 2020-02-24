@@ -139,20 +139,57 @@ typedef struct {
     uint16_t refLen;
 } parser_sendmsg_t;
 
+#define PBIDX_VOTEMSG_METADATA          1
+#define PBIDX_VOTEMSG_ID                2
+#define PBIDX_VOTEMSG_VOTER             3
+#define PBIDX_VOTEMSG_VOTE              4
+
+typedef struct {
+    // These bits are to avoid duplicated fields
+    struct {
+        unsigned int metadata : 1;
+        unsigned int id : 1;
+        unsigned int voter : 1;
+        unsigned int voteOption : 1;
+    } seen;
+
+    const uint8_t *metadataPtr;
+    uint16_t metadataLen;
+    parser_metadata_t metadata;
+
+    const uint8_t *idPtr;
+    uint16_t idLen;
+
+    const uint8_t *voterPtr;
+    uint16_t voterLen;
+
+    uint32_t  voteOption;
+} parser_votemsg_t;
+
+
 #define PBIDX_TX_FEES           1
 #define PBIDX_TX_MULTISIG       4
 #define PBIDX_TX_SENDMSG        51
+#define PBIDX_TX_VOTEMSG        75
+
+enum MsgType {
+    Msg_Invalid = 0,
+    Msg_Send,
+    Msg_Vote,
+};
 
 typedef struct {
     const uint32_t *version;
     uint8_t chainIDLen;
     const uint8_t *chainID;
     int64_t nonce;
+    uint8_t type;
 
     ////
     struct {
         unsigned int fees : 1;
         unsigned int sendmsg : 1;
+        unsigned int votemsg : 1;
     } seen;
 
     const uint8_t *feesPtr;
@@ -161,17 +198,24 @@ typedef struct {
 
     const uint8_t *multisigPtr;
     uint16_t multisigLen;
-    parser_multisig_t multisig;        // PB Field 4
+    parser_multisig_t multisig;     // PB Field 4
 
+    //TxMsg only has only one of the following
     const uint8_t *sendmsgPtr;
     uint16_t sendmsgLen;
     parser_sendmsg_t sendmsg;       // PB Field 51
+
+    const uint8_t *votemsgPtr;
+    uint16_t votemsgLen;
+    parser_votemsg_t votemsg;       // PB Field 75
+    //
 } parser_tx_t;
 
 void parser_coinInit(parser_coin_t *coin);
 void parser_feesInit(parser_fees_t *fees);
 void parser_multisigInit(parser_multisig_t *msg);
 void parser_sendmsgInit(parser_sendmsg_t *msg);
+void parser_votemsgInit(parser_votemsg_t *msg);
 void parser_txInit(parser_tx_t *tx);
 
 #ifdef __cplusplus
