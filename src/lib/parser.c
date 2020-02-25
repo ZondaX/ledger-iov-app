@@ -18,6 +18,7 @@
 #include <zxmacros.h>
 #include "parser.h"
 #include "coin.h"
+#include "bignum.h"
 
 #if defined(TARGET_NANOX)
 // For some reason NanoX requires this function
@@ -252,18 +253,16 @@ parser_error_t parser_getItem(const parser_context_t *ctx,
                 }
                 case FIELD_PROPOSAL_ID: { //Proposal Id
                     snprintf(outKey, outKeyLen, "ProposalId");
-                    err = parser_arrayToString(outValue, outValueLen,
-                                               parser_tx_obj.votemsg.idPtr,
-                                               parser_tx_obj.votemsg.idLen,
-                                               0, NULL);
-                    if (err != parser_ok)
-                        return err;
+                    bignumBigEndian_bcdprint(outValue, outValueLen, parser_tx_obj.votemsg.proposalIdPtr, parser_tx_obj.votemsg.proposalIdLen);
+                    //bignumLittleEndian_bcdprint(outValue, outValueLen, parser_tx_obj.votemsg.proposalIdPtr, parser_tx_obj.votemsg.proposalIdLen);
+                    //fpuint64_to_str(outValue, parser_tx_obj.votemsg.proposalIdLen,
+                    //                *(parser_tx_obj.votemsg.proposalIdPtr + parser_tx_obj.votemsg.proposalIdLen - 1),
+                    //               0);
                     break;
                 }
                 case FIELD_SELECTION: { // Vote option
-                    char* sel;
-                    switch (parser_tx_obj.votemsg.voteOption)
-                    {
+                    char *sel;
+                    switch (parser_tx_obj.votemsg.voteOption) {
                         case VOTE_OPTION_YES:
                             sel = VOTE_OPTION_YES_STR;
                             break;
@@ -288,47 +287,54 @@ parser_error_t parser_getItem(const parser_context_t *ctx,
                     }
                 }
             }
-            case Msg_Update: {
-                switch (parser_mapDisplayIdx(ctx, displayIdx)) {
-                    case FIELD_CHAINID:     // ChainID
-                        snprintf(outKey, outKeyLen, "ChainID");
-                        err = parser_arrayToString(outValue, outValueLen,
-                                                   parser_tx_obj.chainID,
-                                                   parser_tx_obj.chainIDLen,
-                                                   pageIdx, pageCount);
-                        break;
-                    case FIELD_CONTRACT_ID: //Contract Id
-                        snprintf(outKey, outKeyLen, "ContractId");
-                        err = parser_arrayToString(outValue, outValueLen,
-                                                   parser_tx_obj.updatemsg.idPtr,
-                                                   parser_tx_obj.updatemsg.idLen,
-                                                   0, NULL);
-                        if (err != parser_ok)
-                            return err;
-                        break;
-                    case FIELD_PARTICIPANT:  //Participant
-                    //TODO
+            break;
+        }
+        case Msg_Update: {
+            switch (parser_mapDisplayIdx(ctx, displayIdx))
+            {
+                case FIELD_CHAINID:     // ChainID
+                    snprintf(outKey, outKeyLen, "ChainID");
+                    err = parser_arrayToString(outValue, outValueLen,
+                                               parser_tx_obj.chainID,
+                                               parser_tx_obj.chainIDLen,
+                                               pageIdx, pageCount);
                     break;
-                    case FIELD_ACTIVATION_TH:
-                        err = parser_arrayToString(outValue, outValueLen,
-                                                   (const uint8_t *) &parser_tx_obj.updatemsg.activation_th,
-                                                   sizeof(parser_tx_obj.updatemsg.activation_th),
-                                                   0, NULL);
-                        if (err != parser_ok)
-                            return err;
-                        break;
-                    case FIELD_ADMIN_TH: {
-                        err = parser_arrayToString(outValue, outValueLen,
-                                                   (const uint8_t *) &parser_tx_obj.updatemsg.admin_th,
-                                                   sizeof(parser_tx_obj.updatemsg.admin_th),
-                                                   0, NULL);
-                        if (err != parser_ok)
-                            return err;
-                        break;
+                case FIELD_CONTRACT_ID: //Contract Id
+                    snprintf(outKey, outKeyLen, "ContractId");
+                    fpuint64_to_str(outValue, parser_tx_obj.updatemsg.contractIdLen,
+                                    *(parser_tx_obj.updatemsg.contractIdPtr + parser_tx_obj.updatemsg.contractIdLen - 1),
+                                    0);
+                    break;
+                case FIELD_PARTICIPANT: {  //Participant
+                    /*
+                    snprintf(outKey, outKeyLen, "Participants");
+                    for(uint8_t i = 0; i < parser_tx_obj.updatemsg.participantsCount; i++) {
+                        snprintf(outKey, outKeyLen, "Participants [%d/%d]", i + 1,
+                                 parser_tx_obj.updatemsg.participantsCount);
                     }
+                     */
+
                 }
+                    break;
+                case FIELD_ACTIVATION_TH:
+                    err = parser_arrayToString(outValue, outValueLen,
+                                               (const uint8_t *) &parser_tx_obj.updatemsg.activation_th,
+                                               sizeof(parser_tx_obj.updatemsg.activation_th),
+                                               0, NULL);
+                    if (err != parser_ok)
+                        return err;
+                    break;
+                case FIELD_ADMIN_TH:
+                    err = parser_arrayToString(outValue, outValueLen,
+                                               (const uint8_t *) &parser_tx_obj.updatemsg.admin_th,
+                                               sizeof(parser_tx_obj.updatemsg.admin_th),
+                                               0, NULL);
+                    if (err != parser_ok)
+                        return err;
+                    break;
             }
         }
+        break;
     }
 
     return err;

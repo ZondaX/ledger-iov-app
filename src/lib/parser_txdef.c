@@ -88,8 +88,8 @@ void parser_votemsgInit(parser_votemsg_t *msg) {
     msg->metadataLen = 0;
     parser_metadataInit(&msg->metadata);
 
-    msg->idPtr = NULL;
-    msg->idLen = 0;
+    msg->proposalIdPtr = NULL;
+    msg->proposalIdLen = 0;
 
     msg->voterPtr = NULL;
     msg->voterLen = 0;
@@ -110,13 +110,15 @@ void parser_updatemsgInit(parser_updatemsg_t *msg) {
     msg->participantsCount = 0;
     msg->participantsLen = 0;
 
-    msg->idPtr = NULL;
-    msg->idLen = 0;
+    msg->contractIdPtr = NULL;
+    msg->contractIdLen = 0;
 }
 
 void parser_txInit(parser_tx_t *tx) {
     tx->seen.fees = 0;
     tx->seen.sendmsg = 0;
+    tx->seen.votemsg = 0;
+    tx->seen.updatemsg = 0;
 
     tx->version = NULL;
     tx->chainIDLen = 0;

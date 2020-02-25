@@ -167,8 +167,8 @@ typedef struct {
     uint16_t metadataLen;
     parser_metadata_t metadata;
 
-    const uint8_t *idPtr;
-    uint16_t idLen;
+    const uint8_t *proposalIdPtr;
+    uint16_t proposalIdLen;
 
     const uint8_t *voterPtr;
     uint16_t voterLen;
@@ -202,7 +202,7 @@ typedef struct {
 
 typedef struct {
     uint8_t count;
-    parser_participant_t* values[PBIDX_PARTICIPANTS_COUNT_MAX];
+    parser_participant_t* valuesPtr[PBIDX_PARTICIPANTS_COUNT_MAX];
 } parser_multiparticipant_t;
 
 
@@ -219,8 +219,8 @@ typedef struct {
     uint16_t metadataLen;
     parser_metadata_t metadata;
 
-    const uint8_t *idPtr;
-    uint16_t idLen;
+    const uint8_t *contractIdPtr;
+    uint16_t contractIdLen;
 
     //Participants is a repeated field
     uint8_t participantsCount;

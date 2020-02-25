@@ -480,7 +480,7 @@ parser_error_t parser_readPB_VoteMsg(const uint8_t *bufferPtr,
             }
             case PBIDX_VOTEMSG_ID: {
                 CHECK_NOT_DUPLICATED(votemsg->seen.id)
-                READ_ARRAY(votemsg->id)
+                READ_ARRAY(votemsg->proposalId)
                 break;
             }
             case PBIDX_VOTEMSG_VOTER: {
@@ -528,7 +528,7 @@ parser_error_t parser_readPB_UpdateMsg(const uint8_t *bufferPtr,
             }
             case PBIDX_UPDATEMSG_ID: {
                 CHECK_NOT_DUPLICATED(updatemsg->seen.id)
-                READ_ARRAY(updatemsg->id)
+                READ_ARRAY(updatemsg->contractId)
                 break;
             }
             case PBIDX_UPDATEMSG_PARTICIPANTS: {
@@ -624,7 +624,7 @@ parser_error_t parser_readPB_MultiParticipant(parser_context_t *ctx,
     }
 
     MEMCPY(data.bytes, p, pLen);
-    participants->values[participants->count] = data.bytes;
+    participants->valuesPtr[participants->count] = data.bytes;
     participants->count++;
 
     return parser_ok;
