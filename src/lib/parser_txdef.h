@@ -252,7 +252,7 @@ typedef struct {
     uint8_t chainIDLen;
     const uint8_t *chainID;
     int64_t nonce;
-    uint8_t type;
+    uint8_t msgType;
 
     ////
     struct {
@@ -270,19 +270,25 @@ typedef struct {
     uint16_t multisigLen;
     parser_multisig_t multisig;     // PB Field 4
 
-    //TxMsg only has only one of the following
-    const uint8_t *sendmsgPtr;
-    uint16_t sendmsgLen;
-    parser_sendmsg_t sendmsg;       // PB Field 51
-
-    const uint8_t *updatemsgPtr;
-    uint16_t updatemsgLen;
-    parser_updatemsg_t updatemsg;   // PB Field 57
-
-    const uint8_t *votemsgPtr;
-    uint16_t votemsgLen;
-    parser_votemsg_t votemsg;       // PB Field 75
-    //
+    //TxMsg has only one of the following
+    union {
+        struct {
+            const uint8_t *sendmsgPtr;
+            uint16_t sendmsgLen;
+            parser_sendmsg_t sendmsg;       // PB Field 51
+        };
+        struct {
+            const uint8_t *updatemsgPtr;
+            uint16_t updatemsgLen;
+            parser_updatemsg_t updatemsg;   // PB Field 57
+        };
+        struct {
+            const uint8_t *votemsgPtr;
+            uint16_t votemsgLen;
+            parser_votemsg_t votemsg;       // PB Field 75
+        };
+        //
+    };
 } parser_tx_t;
 
 void parser_coinInit(parser_coin_t *coin);
