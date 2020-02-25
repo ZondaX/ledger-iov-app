@@ -124,7 +124,7 @@ void parser_txInit(parser_tx_t *tx) {
     tx->chainIDLen = 0;
     tx->chainID = NULL;
     tx->nonce = 0;
-    tx->type = Msg_Invalid;
+    tx->msgType = Msg_Invalid;
 
     tx->feesPtr = NULL;
     tx->feesLen = 0;
