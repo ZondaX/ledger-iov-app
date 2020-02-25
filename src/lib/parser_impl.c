@@ -508,6 +508,128 @@ parser_error_t parser_readPB_VoteMsg(const uint8_t *bufferPtr,
     return err;
 }
 
+parser_error_t parser_readPB_UpdateMsg(const uint8_t *bufferPtr,
+                                       uint16_t bufferLen,
+                                       parser_updatemsg_t *updatemsg) {
+    DEFINE_CONTEXT()
+
+    uint64_t v;
+    while (ctx.offset < ctx.bufferLen && err == parser_ok) {
+        err = _readRawVarint(&ctx, &v);
+        if (err != parser_ok) {
+            return err;
+        }
+
+        switch (FIELD_NUM(v)) {
+            case PBIDX_UPDATEMSG_METADATA: {
+                CHECK_NOT_DUPLICATED(updatemsg->seen.metadata)
+                READ_ARRAY(updatemsg->metadata)
+                break;
+            }
+            case PBIDX_UPDATEMSG_ID: {
+                CHECK_NOT_DUPLICATED(updatemsg->seen.id)
+                READ_ARRAY(updatemsg->id)
+                break;
+            }
+            case PBIDX_UPDATEMSG_PARTICIPANTS: {
+                // This is a repeated field
+                err = _readArray(&ctx, &updatemsg->participantsPtr[updatemsg->participantsCount], &updatemsg->participantsLen);
+                if (err != parser_ok)
+                    return err;
+                err = parser_readPB_Participant(updatemsg->participantsPtr[updatemsg->participantsCount],
+                                                updatemsg->participantsLen,
+                                                &updatemsg->participants[updatemsg->participantsCount]);
+                if (err != parser_ok)
+                    return err;
+                updatemsg->participantsCount++;
+                break;
+            }
+            case PBIDX_UPDATEMSG_ACTIVATION_TH: {
+                CHECK_NOT_DUPLICATED(updatemsg->seen.activation_th)
+                READ_UINT32(updatemsg->activation_th)
+                break;
+            }
+            case PBIDX_UPDATEMSG_ADMIN_TH: {
+                CHECK_NOT_DUPLICATED(updatemsg->seen.admin_th)
+                READ_UINT32(updatemsg->admin_th)
+                break;
+            }
+            default:
+                // Unknown fields are rejected to avoid malleability
+                return parser_unexpected_field;
+        }
+    }
+
+    err = parser_readPB_Metadata(updatemsg->metadataPtr, updatemsg->metadataLen, &updatemsg->metadata);
+    if (err != parser_ok) return err;
+
+    //Set type of message
+    parser_tx_obj.type = Msg_Update;
+
+    return err;
+}
+
+parser_error_t parser_readPB_Participant(const uint8_t *bufferPtr,
+                                         uint16_t bufferLen,
+                                         parser_participant_t *participant) {
+    DEFINE_CONTEXT()
+
+    uint64_t v;
+    while (ctx.offset < ctx.bufferLen && err == parser_ok) {
+        err = _readRawVarint(&ctx, &v);
+        if (err != parser_ok) {
+            return err;
+        }
+
+        switch (FIELD_NUM(v)) {
+            case PBIDX_PARTICIPANTMSG_SIGNATURE: {
+                CHECK_NOT_DUPLICATED(participant->seen.signature)
+                READ_ARRAY(participant->signature)
+                break;
+            }
+            case PBIDX_PARTICIPANTMSG_WEIGHT: {
+                CHECK_NOT_DUPLICATED(participant->seen.weight)
+                READ_UINT32(participant->weight)
+                break;
+            }
+            default:
+                // Unknown fields are rejected to avoid malleability
+                return parser_unexpected_field;
+        }
+    }
+
+    return parser_ok;
+}
+
+parser_error_t parser_readPB_MultiParticipant(parser_context_t *ctx,
+                                              parser_multiparticipant_t *participants) {
+    union {
+        uint64_t v;
+        parser_participant_t* bytes[8];
+    } data;
+
+    if (participants->count >= PBIDX_PARTICIPANTS_COUNT_MAX) {
+        return parser_value_out_of_range;
+    }
+
+    const uint8_t *p;
+    uint16_t pLen;
+    parser_error_t err = _readArray(ctx, &p, &pLen);
+    if (err != parser_ok) {
+        return err;
+    }
+
+    if (pLen != sizeof(parser_participant_t)) {
+        return parser_unexpected_field_length;
+    }
+
+    MEMCPY(data.bytes, p, pLen);
+    participants->values[participants->count] = data.bytes;
+    participants->count++;
+
+    return parser_ok;
+}
+
 parser_error_t parser_readPB_Root(parser_context_t *ctx) {
     parser_error_t err = parser_ok;
     uint64_t v;
@@ -539,6 +661,11 @@ parser_error_t parser_readPB_Root(parser_context_t *ctx) {
             case PBIDX_TX_VOTEMSG: {
                 CHECK_NOT_DUPLICATED(parser_tx_obj.seen.votemsg)
                 err = _readArray(ctx, &parser_tx_obj.votemsgPtr, &parser_tx_obj.votemsgLen);
+                break;
+            }
+            case PBIDX_TX_UPDATEMSG: {
+                CHECK_NOT_DUPLICATED(parser_tx_obj.seen.updatemsg)
+                err = _readArray(ctx, &parser_tx_obj.updatemsgPtr, &parser_tx_obj.updatemsgLen);
                 break;
             }
             default:
@@ -628,6 +755,11 @@ parser_error_t parser_Tx(parser_context_t *ctx) {
     err = parser_readPB_VoteMsg(parser_tx_obj.votemsgPtr,
                                 parser_tx_obj.votemsgLen,
                                 &parser_tx_obj.votemsg);
+    if (err != parser_ok) return err;
+
+    err = parser_readPB_UpdateMsg(parser_tx_obj.updatemsgPtr,
+                                parser_tx_obj.updatemsgLen,
+                                &parser_tx_obj.updatemsg);
     if (err != parser_ok) return err;
 
     return parser_ok;

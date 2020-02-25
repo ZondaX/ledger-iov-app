@@ -176,16 +176,75 @@ typedef struct {
     uint8_t  voteOption;
 } parser_votemsg_t;
 
+#define PBIDX_PARTICIPANTS_COUNT_MAX    8  //FIXME
+
+#define PBIDX_UPDATEMSG_METADATA          1
+#define PBIDX_UPDATEMSG_ID                2
+#define PBIDX_UPDATEMSG_PARTICIPANTS      3
+#define PBIDX_UPDATEMSG_ACTIVATION_TH     4
+#define PBIDX_UPDATEMSG_ADMIN_TH          5
+
+#define PBIDX_PARTICIPANTMSG_SIGNATURE    1
+#define PBIDX_PARTICIPANTMSG_WEIGHT       2
+
+typedef struct {
+    // These bits are to avoid duplicated fields
+    struct {
+        unsigned int signature : 1;
+        unsigned int weight : 1;
+    } seen;
+
+    const uint8_t *signaturePtr;
+    uint16_t signatureLen;
+
+    uint32_t weight;
+} parser_participant_t;
+
+typedef struct {
+    uint8_t count;
+    parser_participant_t* values[PBIDX_PARTICIPANTS_COUNT_MAX];
+} parser_multiparticipant_t;
+
+
+typedef struct {
+    // These bits are to avoid duplicated fields
+    struct {
+        unsigned int metadata : 1;
+        unsigned int id : 1;
+        unsigned int activation_th : 1;
+        unsigned int admin_th : 1;
+    } seen;
+
+    const uint8_t *metadataPtr;
+    uint16_t metadataLen;
+    parser_metadata_t metadata;
+
+    const uint8_t *idPtr;
+    uint16_t idLen;
+
+    //Participants is a repeated field
+    uint8_t participantsCount;
+    const uint8_t *participantsPtr[PBIDX_PARTICIPANTS_COUNT_MAX];
+    uint16_t participantsLen;
+    parser_participant_t participants[PBIDX_PARTICIPANTS_COUNT_MAX];
+    //parser_multiparticipant_t participants;
+
+    uint32_t  activation_th;
+    uint32_t  admin_th;
+} parser_updatemsg_t;
+
 
 #define PBIDX_TX_FEES           1
 #define PBIDX_TX_MULTISIG       4
 #define PBIDX_TX_SENDMSG        51
+#define PBIDX_TX_UPDATEMSG      57
 #define PBIDX_TX_VOTEMSG        75
 
 enum MsgType {
     Msg_Invalid = 0,
     Msg_Send,
     Msg_Vote,
+    Msg_Update,
 };
 
 typedef struct {
@@ -200,6 +259,7 @@ typedef struct {
         unsigned int fees : 1;
         unsigned int sendmsg : 1;
         unsigned int votemsg : 1;
+        unsigned int updatemsg : 1;
     } seen;
 
     const uint8_t *feesPtr;
@@ -215,6 +275,10 @@ typedef struct {
     uint16_t sendmsgLen;
     parser_sendmsg_t sendmsg;       // PB Field 51
 
+    const uint8_t *updatemsgPtr;
+    uint16_t updatemsgLen;
+    parser_updatemsg_t updatemsg;   // PB Field 57
+
     const uint8_t *votemsgPtr;
     uint16_t votemsgLen;
     parser_votemsg_t votemsg;       // PB Field 75
@@ -226,6 +290,7 @@ void parser_feesInit(parser_fees_t *fees);
 void parser_multisigInit(parser_multisig_t *msg);
 void parser_sendmsgInit(parser_sendmsg_t *msg);
 void parser_votemsgInit(parser_votemsg_t *msg);
+void parser_updatemsgInit(parser_updatemsg_t *msg);
 void parser_txInit(parser_tx_t *tx);
 
 #ifdef __cplusplus
