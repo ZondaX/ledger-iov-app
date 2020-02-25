@@ -253,11 +253,11 @@ parser_error_t parser_getItem(const parser_context_t *ctx,
                 }
                 case FIELD_PROPOSAL_ID: { //Proposal Id
                     snprintf(outKey, outKeyLen, "ProposalId");
-                    bignumBigEndian_bcdprint(outValue, outValueLen, parser_tx_obj.votemsg.proposalIdPtr, parser_tx_obj.votemsg.proposalIdLen);
-                    //bignumLittleEndian_bcdprint(outValue, outValueLen, parser_tx_obj.votemsg.proposalIdPtr, parser_tx_obj.votemsg.proposalIdLen);
-                    //fpuint64_to_str(outValue, parser_tx_obj.votemsg.proposalIdLen,
-                    //                *(parser_tx_obj.votemsg.proposalIdPtr + parser_tx_obj.votemsg.proposalIdLen - 1),
-                    //               0);
+                    uint8_t bcdOut[20]; //Must be  at most outValueLen/2
+                    uint16_t bcdOutLen = sizeof(bcdOut);
+                    bignumBigEndian_to_bcd(bcdOut, bcdOutLen, parser_tx_obj.votemsg.proposalIdPtr,
+                                           parser_tx_obj.votemsg.proposalIdLen);
+                    bignumBigEndian_bcdprint(outValue, outValueLen, bcdOut, bcdOutLen);
                     break;
                 }
                 case FIELD_SELECTION: { // Vote option
@@ -301,9 +301,11 @@ parser_error_t parser_getItem(const parser_context_t *ctx,
                     break;
                 case FIELD_CONTRACT_ID: //Contract Id
                     snprintf(outKey, outKeyLen, "ContractId");
-                    fpuint64_to_str(outValue, parser_tx_obj.updatemsg.contractIdLen,
-                                    *(parser_tx_obj.updatemsg.contractIdPtr + parser_tx_obj.updatemsg.contractIdLen - 1),
-                                    0);
+                    uint8_t bcdOut[20]; //Must be  at most outValueLen/2
+                    uint16_t bcdOutLen = sizeof(bcdOut);
+                    bignumBigEndian_to_bcd(bcdOut, bcdOutLen, parser_tx_obj.updatemsg.contractIdPtr,
+                                           parser_tx_obj.updatemsg.contractIdLen);
+                    bignumBigEndian_bcdprint(outValue, outValueLen, bcdOut, bcdOutLen);
                     break;
                 case FIELD_PARTICIPANT: {  //Participant
                     /*
@@ -331,6 +333,8 @@ parser_error_t parser_getItem(const parser_context_t *ctx,
                                                0, NULL);
                     if (err != parser_ok)
                         return err;
+                    break;
+                default:
                     break;
             }
         }
