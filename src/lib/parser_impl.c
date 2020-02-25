@@ -453,9 +453,6 @@ parser_error_t parser_readPB_SendMsg(const uint8_t *bufferPtr,
     err = parser_readPB_Coin(sendmsg->amountPtr, sendmsg->amountLen, &sendmsg->amount);
     if (err != parser_ok) return err;
 
-    //Set type of message
-    parser_tx_obj.type = Msg_Send;
-
     return err;
 }
 
@@ -501,9 +498,6 @@ parser_error_t parser_readPB_VoteMsg(const uint8_t *bufferPtr,
 
     err = parser_readPB_Metadata(votemsg->metadataPtr, votemsg->metadataLen, &votemsg->metadata);
     if (err != parser_ok) return err;
-
-    //Set type of message
-    parser_tx_obj.type = Msg_Vote;
 
     return err;
 }
@@ -562,9 +556,6 @@ parser_error_t parser_readPB_UpdateMsg(const uint8_t *bufferPtr,
 
     err = parser_readPB_Metadata(updatemsg->metadataPtr, updatemsg->metadataLen, &updatemsg->metadata);
     if (err != parser_ok) return err;
-
-    //Set type of message
-    parser_tx_obj.type = Msg_Update;
 
     return err;
 }
@@ -649,23 +640,24 @@ parser_error_t parser_readPB_Root(parser_context_t *ctx) {
             case PBIDX_TX_MULTISIG: {
                 // This is a repeated field
                 err = parser_readPB_Multisig(ctx, &parser_tx_obj.multisig);
-                if (err != parser_ok)
-                    return err;
                 break;
             }
             case PBIDX_TX_SENDMSG: {
                 CHECK_NOT_DUPLICATED(parser_tx_obj.seen.sendmsg)
                 err = _readArray(ctx, &parser_tx_obj.sendmsgPtr, &parser_tx_obj.sendmsgLen);
+                parser_tx_obj.msgType = Msg_Send;
                 break;
             }
             case PBIDX_TX_VOTEMSG: {
                 CHECK_NOT_DUPLICATED(parser_tx_obj.seen.votemsg)
                 err = _readArray(ctx, &parser_tx_obj.votemsgPtr, &parser_tx_obj.votemsgLen);
+                parser_tx_obj.msgType = Msg_Vote;
                 break;
             }
             case PBIDX_TX_UPDATEMSG: {
                 CHECK_NOT_DUPLICATED(parser_tx_obj.seen.updatemsg)
                 err = _readArray(ctx, &parser_tx_obj.updatemsgPtr, &parser_tx_obj.updatemsgLen);
+                parser_tx_obj.msgType = Msg_Update;
                 break;
             }
             default:
@@ -739,6 +731,7 @@ parser_error_t parser_readRoot(parser_context_t *ctx) {
 }
 
 parser_error_t parser_Tx(parser_context_t *ctx) {
+
     parser_error_t err = parser_readRoot(ctx);
     if (err != parser_ok) return err;
 
@@ -747,20 +740,30 @@ parser_error_t parser_Tx(parser_context_t *ctx) {
                              &parser_tx_obj.fees);
     if (err != parser_ok) return err;
 
-    err = parser_readPB_SendMsg(parser_tx_obj.sendmsgPtr,
-                                parser_tx_obj.sendmsgLen,
-                                &parser_tx_obj.sendmsg);
-    if (err != parser_ok) return err;
-
-    err = parser_readPB_VoteMsg(parser_tx_obj.votemsgPtr,
-                                parser_tx_obj.votemsgLen,
-                                &parser_tx_obj.votemsg);
-    if (err != parser_ok) return err;
-
-    err = parser_readPB_UpdateMsg(parser_tx_obj.updatemsgPtr,
-                                parser_tx_obj.updatemsgLen,
-                                &parser_tx_obj.updatemsg);
-    if (err != parser_ok) return err;
+    //Tx should contains only one of the following
+    switch (parser_tx_obj.msgType)
+    {
+        case Msg_Send:
+            err = parser_readPB_SendMsg(parser_tx_obj.sendmsgPtr,
+                                        parser_tx_obj.sendmsgLen,
+                                        &parser_tx_obj.sendmsg);
+            if (err != parser_ok) return err;
+            break;
+        case Msg_Vote:
+            err = parser_readPB_VoteMsg(parser_tx_obj.votemsgPtr,
+                                        parser_tx_obj.votemsgLen,
+                                        &parser_tx_obj.votemsg);
+            if (err != parser_ok) return err;
+            break;
+        case Msg_Update:
+            err = parser_readPB_UpdateMsg(parser_tx_obj.updatemsgPtr,
+                                          parser_tx_obj.updatemsgLen,
+                                          &parser_tx_obj.updatemsg);
+            if (err != parser_ok) return err;
+            break;
+        default:
+            return parser_no_data;
+    }
 
     return parser_ok;
 }
