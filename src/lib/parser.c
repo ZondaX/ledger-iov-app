@@ -92,7 +92,7 @@ parser_error_t parser_validate(const parser_context_t *ctx, bool_t isMainnet) {
 uint8_t parser_getNumItems(const parser_context_t *ctx) {
 
     uint8_t fields = 0;
-    switch(parser_tx_obj.type)
+    switch(parser_tx_obj.msgType)
     {
         case Msg_Send:
             fields = FIELD_TOTAL_FIXCOUNT_SENDMSG;
@@ -139,7 +139,7 @@ parser_error_t parser_getItem(const parser_context_t *ctx,
     parser_error_t err = parser_ok;
     *pageCount = 1;
 
-    switch (parser_tx_obj.type)
+    switch (parser_tx_obj.msgType)
     {
         case Msg_Send: {
             switch (parser_mapDisplayIdx(ctx, displayIdx)) {
