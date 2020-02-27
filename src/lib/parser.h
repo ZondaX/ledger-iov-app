@@ -42,6 +42,11 @@ parser_error_t parser_getItem(const parser_context_t *ctx,
                               char *outValue, uint16_t outValueLen,
                               uint8_t pageIdx, uint8_t *pageCount);
 
+//Specialized parsers
+parser_error_t parser_ParticipantToString(char *out, uint16_t outLen,
+                                          const uint8_t* participant,
+                                          uint8_t pageIdx, uint8_t *pageCount);
+
 #ifdef __cplusplus
 }
 #endif

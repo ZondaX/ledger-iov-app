@@ -28,15 +28,20 @@ void __assert_fail(const char * assertion, const char * file, unsigned int line,
 #endif
 
 #ifdef MAINNET_ENABLED
+#define OFFSET 1
+/*
 #define FIELD_TOTAL_FIXCOUNT 5
-
 #define FIELD_CHAINID -100
 #define FIELD_SOURCE 0
 #define FIELD_DESTINATION 1
 #define FIELD_AMOUNT 2
 #define FIELD_FEE 3
 #define FIELD_MEMO 4
+ */
 #else
+#define OFFSET 0
+#endif
+
 #define FIELD_TOTAL_FIXCOUNT_SENDMSG   6
 #define FIELD_TOTAL_FIXCOUNT_VOTEMSG   4
 #define FIELD_TOTAL_FIXCOUNT_UPDATEMSG 5
@@ -59,7 +64,9 @@ void __assert_fail(const char * assertion, const char * file, unsigned int line,
 #define FIELD_PARTICIPANT   2
 #define FIELD_ACTIVATION_TH 3
 #define FIELD_ADMIN_TH      4
-#endif
+//Fields for MsgParticipant
+#define FIELD_PARTICIPANT_ADDRESS 1
+#define FIELD_PARTICIPANT_WEIGHT  2
 
 // * optional chainid for testnet mode
 // 0  source
@@ -104,7 +111,6 @@ uint8_t parser_getNumItems(const parser_context_t *ctx) {
             break;
         case Msg_Update:
             fields = FIELD_TOTAL_FIXCOUNT_UPDATEMSG;
-            //fields += parser_tx_obj.updatemsg.participants.count;
             fields += parser_tx_obj.updatemsg.participantsCount;
             break;
         default:
@@ -307,16 +313,11 @@ parser_error_t parser_getItem(const parser_context_t *ctx,
                                            parser_tx_obj.updatemsg.contractIdLen);
                     bignumBigEndian_bcdprint(outValue, outValueLen, bcdOut, bcdOutLen);
                     break;
-                case FIELD_PARTICIPANT: {  //Participant
-                    /*
-                    snprintf(outKey, outKeyLen, "Participants");
-                    for(uint8_t i = 0; i < parser_tx_obj.updatemsg.participantsCount; i++) {
-                        snprintf(outKey, outKeyLen, "Participants [%d/%d]", i + 1,
-                                 parser_tx_obj.updatemsg.participantsCount);
-                    }
-                     */
-
-                }
+                case FIELD_PARTICIPANT:   //Participant
+                    snprintf(outKey, outKeyLen, "Participants [%d]", parser_tx_obj.updatemsg.participantsCount);
+                    parser_ParticipantToString(outValue, outValueLen,
+                                               parser_tx_obj.updatemsg.participantsPtr,
+                                               pageIdx, pageCount);
                     break;
                 case FIELD_ACTIVATION_TH:
                     err = parser_arrayToString(outValue, outValueLen,
@@ -342,4 +343,44 @@ parser_error_t parser_getItem(const parser_context_t *ctx,
     }
 
     return err;
+}
+
+parser_error_t parser_ParticipantToString(char *out, uint16_t outLen, const uint8_t* participant, uint8_t pageIdx,
+                                          uint8_t *pageCount) {
+
+    if (*pageCount == 1u)
+        *pageCount = parser_tx_obj.updatemsg.participantsCount * 2;
+
+    if(pageIdx == *pageCount)
+        return parser_ok;
+
+    uint8_t idx = pageIdx;
+
+    while (idx > 2) {
+        idx -= 2;
+    }
+
+    switch (idx)
+    {
+        case FIELD_PARTICIPANT_ADDRESS:
+            snprintf(out, outLen, "Source");
+            parser_error_t err = parser_getAddress(parser_tx_obj.chainID, parser_tx_obj.chainIDLen,
+                                                   (char *) UI_buffer, UI_BUFFER,
+                                                   parser_tx_obj.updatemsg.participantsPtr,
+                                                   parser_tx_obj.updatemsg.participantsLen);
+            // page it
+            uint8_t string_pageCount = 0;
+            uint8_t pageId = 0;
+            parser_arrayToString(out, outLen, UI_buffer,
+                                 strlen((char *) UI_buffer), pageId, &string_pageCount);
+            break;
+
+        case FIELD_PARTICIPANT_WEIGHT:
+            break;
+
+        default:
+            break;
+    }
+
+    return parser_ok;
 }

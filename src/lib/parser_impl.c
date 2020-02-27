@@ -527,14 +527,20 @@ parser_error_t parser_readPB_UpdateMsg(const uint8_t *bufferPtr,
             }
             case PBIDX_UPDATEMSG_PARTICIPANTS: {
                 // This is a repeated field
-                err = _readArray(&ctx, &updatemsg->participantsPtr[updatemsg->participantsCount], &updatemsg->participantsLen);
-                if (err != parser_ok)
-                    return err;
-                err = parser_readPB_Participant(updatemsg->participantsPtr[updatemsg->participantsCount],
+                READ_ARRAY(updatemsg->participants);
+                parser_participant_t participant;
+                parser_ParticipantmsgInit(&participant);
+                err = parser_readPB_Participant(updatemsg->participantsPtr,
                                                 updatemsg->participantsLen,
-                                                &updatemsg->participants[updatemsg->participantsCount]);
+                                                &participant);
                 if (err != parser_ok)
                     return err;
+
+                if(updatemsg->participantsCount > 0) {
+                    //participantsPtr will always point to the first Participant on the array
+                    updatemsg->participantsPtr = (uint8_t *) (updatemsg->participantsPtr - (updatemsg->participantsLen *
+                                                                                            updatemsg->participantsCount)-2);
+                }
                 updatemsg->participantsCount++;
                 break;
             }
@@ -588,35 +594,6 @@ parser_error_t parser_readPB_Participant(const uint8_t *bufferPtr,
                 return parser_unexpected_field;
         }
     }
-
-    return parser_ok;
-}
-
-parser_error_t parser_readPB_MultiParticipant(parser_context_t *ctx,
-                                              parser_multiparticipant_t *participants) {
-    union {
-        uint64_t v;
-        parser_participant_t* bytes[8];
-    } data;
-
-    if (participants->count >= PBIDX_PARTICIPANTS_COUNT_MAX) {
-        return parser_value_out_of_range;
-    }
-
-    const uint8_t *p;
-    uint16_t pLen;
-    parser_error_t err = _readArray(ctx, &p, &pLen);
-    if (err != parser_ok) {
-        return err;
-    }
-
-    if (pLen != sizeof(parser_participant_t)) {
-        return parser_unexpected_field_length;
-    }
-
-    MEMCPY(data.bytes, p, pLen);
-    participants->valuesPtr[participants->count] = data.bytes;
-    participants->count++;
 
     return parser_ok;
 }

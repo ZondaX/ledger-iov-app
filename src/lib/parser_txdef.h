@@ -176,8 +176,6 @@ typedef struct {
     uint8_t  voteOption;
 } parser_votemsg_t;
 
-#define PBIDX_PARTICIPANTS_COUNT_MAX    8  //FIXME
-
 #define PBIDX_UPDATEMSG_METADATA          1
 #define PBIDX_UPDATEMSG_ID                2
 #define PBIDX_UPDATEMSG_PARTICIPANTS      3
@@ -201,12 +199,6 @@ typedef struct {
 } parser_participant_t;
 
 typedef struct {
-    uint8_t count;
-    parser_participant_t* valuesPtr[PBIDX_PARTICIPANTS_COUNT_MAX];
-} parser_multiparticipant_t;
-
-
-typedef struct {
     // These bits are to avoid duplicated fields
     struct {
         unsigned int metadata : 1;
@@ -223,11 +215,9 @@ typedef struct {
     uint16_t contractIdLen;
 
     //Participants is a repeated field
-    uint8_t participantsCount;
-    const uint8_t *participantsPtr[PBIDX_PARTICIPANTS_COUNT_MAX];
-    uint16_t participantsLen;
-    parser_participant_t participants[PBIDX_PARTICIPANTS_COUNT_MAX];
-    //parser_multiparticipant_t participants;
+    uint8_t participantsCount; //Total participants fields in Tx
+    const uint8_t *participantsPtr; //Points to the first participant
+    uint16_t participantsLen; //Length of each Participant field
 
     uint32_t  activation_th;
     uint32_t  admin_th;
@@ -297,6 +287,7 @@ void parser_multisigInit(parser_multisig_t *msg);
 void parser_sendmsgInit(parser_sendmsg_t *msg);
 void parser_votemsgInit(parser_votemsg_t *msg);
 void parser_updatemsgInit(parser_updatemsg_t *msg);
+void parser_ParticipantmsgInit(parser_participant_t *msg);
 void parser_txInit(parser_tx_t *tx);
 
 #ifdef __cplusplus

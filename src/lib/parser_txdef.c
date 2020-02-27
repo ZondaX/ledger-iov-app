@@ -108,11 +108,22 @@ void parser_updatemsgInit(parser_updatemsg_t *msg) {
     parser_metadataInit(&msg->metadata);
 
     msg->participantsCount = 0;
-    msg->participantsLen = 0;
+    msg->participantsPtr = NULL;
 
     msg->contractIdPtr = NULL;
     msg->contractIdLen = 0;
 }
+
+void parser_ParticipantmsgInit(parser_participant_t *msg) {
+    msg->seen.weight = 0;
+    msg->seen.signature = 0;
+
+    msg->signatureLen = 0;
+    msg->signaturePtr = NULL;
+
+    msg->weight = 0;
+}
+
 
 void parser_txInit(parser_tx_t *tx) {
     tx->seen.fees = 0;

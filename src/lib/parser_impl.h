@@ -72,9 +72,6 @@ parser_error_t parser_readPB_UpdateMsg(const uint8_t *bufferPtr,
                                        uint16_t bufferLen,
                                        parser_updatemsg_t *updatemsg);
 
-parser_error_t parser_readPB_MultiParticipant(parser_context_t *ctx,
-                                              parser_multiparticipant_t *participants);
-
 parser_error_t parser_readPB_Participant(const uint8_t *bufferPtr,
                                          uint16_t bufferLen,
                                          parser_participant_t *participant);
