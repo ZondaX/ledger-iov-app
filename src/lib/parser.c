@@ -35,26 +35,26 @@ void __assert_fail(const char * assertion, const char * file, unsigned int line,
 #define FIELD_CHAINID 0
 #endif
 
-#define FIELD_TOTAL_FIXCOUNT_SENDMSG        6 - OFFSET
-#define FIELD_TOTAL_FIXCOUNT_VOTEMSG        4 - OFFSET
-#define FIELD_TOTAL_FIXCOUNT_UPDATEMSG      5 - OFFSET
+#define FIELD_TOTAL_FIXCOUNT_SENDMSG       (6 - OFFSET)
+#define FIELD_TOTAL_FIXCOUNT_VOTEMSG       (4 - OFFSET)
+#define FIELD_TOTAL_FIXCOUNT_UPDATEMSG     (5 - OFFSET)
 #define FIELD_TOTAL_FIXCOUNT_PARTICIPANTMSG 2
 
 //Fields for TxSend
-#define FIELD_SOURCE 1        - OFFSET
-#define FIELD_DESTINATION 2   - OFFSET
-#define FIELD_AMOUNT 3        - OFFSET
-#define FIELD_FEE 4           - OFFSET
-#define FIELD_MEMO 5          - OFFSET
+#define FIELD_SOURCE      (1 - OFFSET)
+#define FIELD_DESTINATION (2 - OFFSET)
+#define FIELD_AMOUNT      (3 - OFFSET)
+#define FIELD_FEE         (4 - OFFSET)
+#define FIELD_MEMO        (5 - OFFSET)
 //Fields for TxVote
-#define FIELD_PROPOSAL_ID 1   - OFFSET
-#define FIELD_VOTER 2         - OFFSET
-#define FIELD_SELECTION 3     - OFFSET
+#define FIELD_PROPOSAL_ID (1 - OFFSET)
+#define FIELD_VOTER       (2 - OFFSET)
+#define FIELD_SELECTION   (3 - OFFSET)
 //Fields for TxUpdate
-#define FIELD_CONTRACT_ID   1 - OFFSET
-#define FIELD_PARTICIPANT   2 - OFFSET
-#define FIELD_ACTIVATION_TH 3 - OFFSET
-#define FIELD_ADMIN_TH      4 - OFFSET
+#define FIELD_CONTRACT_ID   (1 - OFFSET)
+#define FIELD_PARTICIPANT   (2 - OFFSET)
+#define FIELD_ACTIVATION_TH (3 - OFFSET)
+#define FIELD_ADMIN_TH      (4 - OFFSET)
 //Fields for MsgParticipant
 #define FIELD_PARTICIPANT_ADDRESS 0
 #define FIELD_PARTICIPANT_WEIGHT  1
