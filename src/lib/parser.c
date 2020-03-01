@@ -42,9 +42,10 @@ void __assert_fail(const char * assertion, const char * file, unsigned int line,
 #define OFFSET 0
 #endif
 
-#define FIELD_TOTAL_FIXCOUNT_SENDMSG   6
-#define FIELD_TOTAL_FIXCOUNT_VOTEMSG   4
-#define FIELD_TOTAL_FIXCOUNT_UPDATEMSG 5
+#define FIELD_TOTAL_FIXCOUNT_SENDMSG        6
+#define FIELD_TOTAL_FIXCOUNT_VOTEMSG        4
+#define FIELD_TOTAL_FIXCOUNT_UPDATEMSG      5
+#define FIELD_TOTAL_FIXCOUNT_PARTICIPANTMSG 2
 
 //Common fields
 #define FIELD_CHAINID 0
@@ -65,8 +66,8 @@ void __assert_fail(const char * assertion, const char * file, unsigned int line,
 #define FIELD_ACTIVATION_TH 3
 #define FIELD_ADMIN_TH      4
 //Fields for MsgParticipant
-#define FIELD_PARTICIPANT_ADDRESS 1
-#define FIELD_PARTICIPANT_WEIGHT  2
+#define FIELD_PARTICIPANT_ADDRESS 0
+#define FIELD_PARTICIPANT_WEIGHT  1
 
 // * optional chainid for testnet mode
 // 0  source
@@ -105,29 +106,49 @@ uint8_t parser_getNumItems(const parser_context_t *ctx) {
             fields = FIELD_TOTAL_FIXCOUNT_SENDMSG;
             if (parser_tx_obj.sendmsg.memoLen == 0)
                 fields--;
+            fields += parser_tx_obj.multisig.count;
             break;
         case Msg_Vote:
             fields = FIELD_TOTAL_FIXCOUNT_VOTEMSG;
             break;
         case Msg_Update:
-            fields = FIELD_TOTAL_FIXCOUNT_UPDATEMSG;
-            fields += parser_tx_obj.updatemsg.participantsCount;
+            fields = FIELD_TOTAL_FIXCOUNT_UPDATEMSG - 1;
+            fields += parser_tx_obj.updatemsg.participantsCount * FIELD_TOTAL_FIXCOUNT_PARTICIPANTMSG;
             break;
         default:
             return fields;
     }
-
-    fields += parser_tx_obj.multisig.count;
     return fields;
 }
 
 uint8_t UI_buffer[UI_BUFFER];
 
 int8_t parser_mapDisplayIdx(const parser_context_t *ctx, int8_t displayIdx) {
-    if (parser_tx_obj.sendmsg.memoLen == 0 && displayIdx >= FIELD_MEMO) {
-        // SKIP Memo Field
-        return displayIdx + 1;
+
+    switch (parser_tx_obj.msgType) {
+        case Msg_Update: {
+            //Check if index is inside Participants range. It goes from index 2 to 2 + participantsCount*FIELD_TOTAL_FIXCOUNT_PARTICIPANTMSG
+            if (displayIdx >= FIELD_PARTICIPANT && displayIdx < (FIELD_PARTICIPANT +
+                                                                (parser_tx_obj.updatemsg.participantsCount *
+                                                                 FIELD_TOTAL_FIXCOUNT_PARTICIPANTMSG))) {
+                return (uint8_t) FIELD_PARTICIPANT;
+            } else {
+                if (displayIdx > FIELD_TOTAL_FIXCOUNT_PARTICIPANTMSG)
+                    return displayIdx - (parser_tx_obj.updatemsg.participantsCount * FIELD_TOTAL_FIXCOUNT_PARTICIPANTMSG) +1;
+                else
+                    return displayIdx;
+            }
+        }
+        case Msg_Send: {
+            if (parser_tx_obj.sendmsg.memoLen == 0 && displayIdx >= FIELD_MEMO) {
+                // SKIP Memo Field
+                return displayIdx + 1;
+            }
+        }
+        case Msg_Vote:
+            return displayIdx;
     }
+
     return displayIdx;
 }
 
@@ -314,26 +335,15 @@ parser_error_t parser_getItem(const parser_context_t *ctx,
                     bignumBigEndian_bcdprint(outValue, outValueLen, bcdOut, bcdOutLen);
                     break;
                 case FIELD_PARTICIPANT:   //Participant
-                    snprintf(outKey, outKeyLen, "Participants [%d]", parser_tx_obj.updatemsg.participantsCount);
-                    parser_ParticipantToString(outValue, outValueLen,
-                                               parser_tx_obj.updatemsg.participantsPtr,
-                                               pageIdx, pageCount);
+                    err = parser_getItem_Participant(ctx, displayIdx, outKey, outKeyLen, outValue, outValueLen, pageIdx, pageCount);
                     break;
                 case FIELD_ACTIVATION_TH:
-                    err = parser_arrayToString(outValue, outValueLen,
-                                               (const uint8_t *) &parser_tx_obj.updatemsg.activation_th,
-                                               sizeof(parser_tx_obj.updatemsg.activation_th),
-                                               0, NULL);
-                    if (err != parser_ok)
-                        return err;
+                    snprintf(outKey, outKeyLen, "ActivationTh");
+                    int64_to_str(outValue, outValueLen, parser_tx_obj.updatemsg.activation_th);
                     break;
                 case FIELD_ADMIN_TH:
-                    err = parser_arrayToString(outValue, outValueLen,
-                                               (const uint8_t *) &parser_tx_obj.updatemsg.admin_th,
-                                               sizeof(parser_tx_obj.updatemsg.admin_th),
-                                               0, NULL);
-                    if (err != parser_ok)
-                        return err;
+                    snprintf(outKey, outKeyLen, "AdminTh");
+                    int64_to_str(outValue, outValueLen, parser_tx_obj.updatemsg.admin_th);
                     break;
                 default:
                     break;
@@ -345,42 +355,45 @@ parser_error_t parser_getItem(const parser_context_t *ctx,
     return err;
 }
 
-parser_error_t parser_ParticipantToString(char *out, uint16_t outLen, const uint8_t* participant, uint8_t pageIdx,
-                                          uint8_t *pageCount) {
+parser_error_t
+parser_getItem_Participant(const parser_context_t *ctx, int8_t displayIdx, char *outKey, uint16_t outKeyLen,
+                           char *outValue, uint16_t outValueLen, uint8_t pageIdx, uint8_t *pageCount) {
 
-    if (*pageCount == 1u)
-        *pageCount = parser_tx_obj.updatemsg.participantsCount * 2;
+    parser_error_t err = parser_ok;
+    //Get on which participant index we are right now
+    uint8_t participantIdx = ((displayIdx - FIELD_PARTICIPANT) / parser_tx_obj.updatemsg.participantsCount) + 1;
+    //Get Participants field index
+    uint8_t fieldIdx = (displayIdx - (FIELD_TOTAL_FIXCOUNT_PARTICIPANTMSG * participantIdx)) % 2;
 
-    if(pageIdx == *pageCount)
-        return parser_ok;
+    //Parse Participant that corresponds to participantIdx
+    parser_participant_t p;
+    parser_readPB_Participant(parser_tx_obj.updatemsg.participantsPtr +
+                              ((parser_tx_obj.updatemsg.participantsLen + 2) * (participantIdx -1)),
+                              parser_tx_obj.updatemsg.participantsLen, &p);
 
-    uint8_t idx = pageIdx;
-
-    while (idx > 2) {
-        idx -= 2;
-    }
-
-    switch (idx)
+    switch (fieldIdx)
     {
-        case FIELD_PARTICIPANT_ADDRESS:
-            snprintf(out, outLen, "Source");
-            parser_error_t err = parser_getAddress(parser_tx_obj.chainID, parser_tx_obj.chainIDLen,
-                                                   (char *) UI_buffer, UI_BUFFER,
-                                                   parser_tx_obj.updatemsg.participantsPtr,
-                                                   parser_tx_obj.updatemsg.participantsLen);
+        case FIELD_PARTICIPANT_ADDRESS: {
+            err = parser_getAddress(parser_tx_obj.chainID, parser_tx_obj.chainIDLen,
+                                    (char *) UI_buffer, UI_BUFFER,
+                                    p.signaturePtr, p.signatureLen);
+            if (err != parser_ok) return err;
             // page it
-            uint8_t string_pageCount = 0;
-            uint8_t pageId = 0;
-            parser_arrayToString(out, outLen, UI_buffer,
-                                 strlen((char *) UI_buffer), pageId, &string_pageCount);
+            parser_arrayToString(outValue, outValueLen, UI_buffer,
+                                 strlen((char *) UI_buffer), pageIdx, pageCount);
+            snprintf(outKey, outKeyLen, "Participant [%d/%d] Signature",
+                     participantIdx, parser_tx_obj.updatemsg.participantsCount);
             break;
-
+        }
         case FIELD_PARTICIPANT_WEIGHT:
+            snprintf(outKey, outKeyLen, "Participant [%d/%d] Weight",
+                     participantIdx, parser_tx_obj.updatemsg.participantsCount);
+            int64_to_str(outValue, outValueLen, p.weight);
             break;
-
         default:
+            err = parser_unexpected_field;
             break;
     }
 
-    return parser_ok;
+    return err;
 }
