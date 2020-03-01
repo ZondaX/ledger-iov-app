@@ -348,7 +348,7 @@ __Z_INLINE parser_error_t parser_getItem_Vote(const parser_context_t *ctx, int8_
             break;
         }
         case FIELD_SELECTION: { // Vote option
-            char *sel;
+            const char *sel;
             switch (parser_tx_obj.votemsg.voteOption) {
                 case VOTE_OPTION_YES:
                     sel = VOTE_OPTION_YES_STR;
@@ -362,8 +362,8 @@ __Z_INLINE parser_error_t parser_getItem_Vote(const parser_context_t *ctx, int8_
                 default:
                     sel = VOTE_OPTION_INVALID_STR;
             }
-            MEMCPY(outValue, sel, sizeof(sel));
             snprintf(outKey, outKeyLen, "Selection");
+            snprintf(outValue, outValueLen, "%s", sel);
             break;
         }
         default: {
