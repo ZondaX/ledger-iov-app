@@ -139,10 +139,10 @@ typedef struct {
     uint16_t refLen;
 } parser_sendmsg_t;
 
-#define PBIDX_VOTEMSG_METADATA          1
-#define PBIDX_VOTEMSG_ID                2
-#define PBIDX_VOTEMSG_VOTER             3
-#define PBIDX_VOTEMSG_VOTE              4
+#define PBIDX_VOTEMSG_METADATA      1
+#define PBIDX_VOTEMSG_PROPOSAL_ID   2
+#define PBIDX_VOTEMSG_VOTER         3
+#define PBIDX_VOTEMSG_VOTE          4
 
 #define VOTE_OPTION_INVALID    0
 #define VOTE_OPTION_YES        1

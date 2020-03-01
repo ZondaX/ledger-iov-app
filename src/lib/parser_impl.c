@@ -493,7 +493,7 @@ parser_error_t parser_readPB_VoteMsg(const uint8_t *bufferPtr,
                 READ_ARRAY(votemsg->metadata)
                 break;
             }
-            case PBIDX_VOTEMSG_ID: {
+            case PBIDX_VOTEMSG_PROPOSAL_ID: {
                 CHECK_NOT_DUPLICATED(votemsg->seen.id)
                 READ_ARRAY(votemsg->proposalId)
                 break;
