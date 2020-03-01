@@ -169,6 +169,23 @@ parser_error_t _readUInt32(parser_context_t *ctx, uint32_t *value) {
     return parser_ok;
 }
 
+parser_error_t _readUInt8(parser_context_t *ctx, uint8_t *value) {
+    ctx->lastConsumed = 0;
+
+    uint64_t tmpValue;
+    parser_error_t err = _readVarint(ctx, &tmpValue);
+    if (err != parser_ok) {
+        return err;
+    }
+
+    if (tmpValue >= (uint64_t) UINT8_MAX) {
+        return parser_value_out_of_range;
+    }
+
+    *value = (uint8_t) tmpValue;
+    return parser_ok;
+}
+
 parser_error_t _readArray(parser_context_t *ctx, const uint8_t **s, uint16_t *stringLen) {
     ctx->lastConsumed = 0;
 
@@ -256,6 +273,7 @@ parser_error_t _checkChainIDValid(const uint8_t *p, uint16_t len) {
 
 #define READ_NONNEGATIVE_INT64(FIELD) err = _readNonNegativeInt64(&ctx, &FIELD); if (err!=parser_ok) return err;
 #define READ_UINT32(FIELD) err = _readUInt32(&ctx, &FIELD); if (err!=parser_ok) return err;
+#define READ_UINT8(FIELD) err = _readUInt8(&ctx, &FIELD); if (err!=parser_ok) return err;
 #define READ_ARRAY(FIELD) err = _readArray(&ctx, &FIELD##Ptr, &FIELD##Len); if (err!=parser_ok) return err;
 
 parser_error_t parser_readPB_Metadata(const uint8_t *bufferPtr,
@@ -487,7 +505,7 @@ parser_error_t parser_readPB_VoteMsg(const uint8_t *bufferPtr,
             }
             case PBIDX_VOTEMSG_VOTE: {
                 CHECK_NOT_DUPLICATED(votemsg->seen.voteOption)
-                READ_UINT32(votemsg->voteOption)
+                READ_UINT8(votemsg->voteOption)
                 break;
             }
             default:

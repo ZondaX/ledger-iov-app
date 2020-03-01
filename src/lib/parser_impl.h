@@ -46,6 +46,8 @@ parser_error_t _readVarint(parser_context_t *ctx, uint64_t *value);
 
 parser_error_t _readUInt32(parser_context_t *ctx, uint32_t *value);
 
+parser_error_t _readUInt8(parser_context_t *ctx, uint8_t *value);
+
 parser_error_t _readArray(parser_context_t *ctx, const uint8_t **s, uint16_t *stringLen);
 
 parser_error_t parser_readPB_Metadata(const uint8_t *bufferPtr,
