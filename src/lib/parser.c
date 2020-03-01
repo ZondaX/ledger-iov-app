@@ -181,6 +181,11 @@ __Z_INLINE parser_getItem_Participant(const parser_context_t *ctx, int8_t displa
                            char *outValue, uint16_t outValueLen, uint8_t pageIdx, uint8_t *pageCount) {
 
     parser_error_t err = parser_ok;
+
+    //Check if participantsCount is > 0
+    if(parser_tx_obj.updatemsg.participantsCount == 0)
+        return err;
+
     //Get on which participant index we are right now
     uint8_t participantIdx = ((displayIdx - FIELD_PARTICIPANT) / parser_tx_obj.updatemsg.participantsCount) + 1;
     //Get Participants field index
