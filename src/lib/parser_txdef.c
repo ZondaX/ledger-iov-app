@@ -97,7 +97,7 @@ void parser_votemsgInit(parser_votemsg_t *msg) {
     msg->voteOption = 0;
 }
 
-void parser_updatemsgInit(parser_updatemsg_t *msg) {
+void parser_updatemsgInit(parser_updatemultisigmsg_t *msg) {
     msg->seen.metadata = 0;
     msg->seen.id = 0;
     msg->seen.activation_th = 0;
@@ -108,7 +108,6 @@ void parser_updatemsgInit(parser_updatemsg_t *msg) {
     parser_metadataInit(&msg->metadata);
 
     msg->participantsCount = 0;
-    msg->participantsPtr = NULL;
 
     msg->contractIdPtr = NULL;
     msg->contractIdLen = 0;
@@ -127,9 +126,7 @@ void parser_ParticipantmsgInit(parser_participant_t *msg) {
 
 void parser_txInit(parser_tx_t *tx) {
     tx->seen.fees = 0;
-    tx->seen.sendmsg = 0;
-    tx->seen.votemsg = 0;
-    tx->seen.updatemsg = 0;
+    tx->seen.tx_message = 0;
 
     tx->version = NULL;
     tx->chainIDLen = 0;

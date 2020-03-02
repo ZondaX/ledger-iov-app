@@ -14,6 +14,7 @@
 *  limitations under the License.
 ********************************************************************************/
 #pragma once
+
 #include "coin.h"
 
 //version | len(chainID) | chainID      | nonce             | signBytes
@@ -173,7 +174,7 @@ typedef struct {
     const uint8_t *voterPtr;
     uint16_t voterLen;
 
-    uint8_t  voteOption;
+    uint8_t voteOption;
 } parser_votemsg_t;
 
 #define PBIDX_UPDATEMSG_METADATA          1
@@ -184,6 +185,8 @@ typedef struct {
 
 #define PBIDX_PARTICIPANTMSG_SIGNATURE    1
 #define PBIDX_PARTICIPANTMSG_WEIGHT       2
+
+#define PBIDX_UPDATEMSG_PARTICIPANTS_MAX 16
 
 typedef struct {
     // These bits are to avoid duplicated fields
@@ -216,12 +219,11 @@ typedef struct {
 
     //Participants is a repeated field
     uint8_t participantsCount; //Total participants fields in Tx
-    const uint8_t *participantsPtr; //Points to the first participant
-    uint16_t participantsLen; //Length of each Participant field
+    parser_participant_t participant_array[PBIDX_UPDATEMSG_PARTICIPANTS_MAX];
 
-    uint32_t  activation_th;
-    uint32_t  admin_th;
-} parser_updatemsg_t;
+    uint32_t activation_th;
+    uint32_t admin_th;
+} parser_updatemultisigmsg_t;
 
 
 #define PBIDX_TX_FEES           1
@@ -230,26 +232,24 @@ typedef struct {
 #define PBIDX_TX_UPDATEMSG      57
 #define PBIDX_TX_VOTEMSG        75
 
-enum MsgType {
+typedef enum {
     Msg_Invalid = 0,
     Msg_Send,
     Msg_Vote,
     Msg_Update,
-};
+} MsgType;
 
 typedef struct {
     const uint32_t *version;
     uint8_t chainIDLen;
     const uint8_t *chainID;
     int64_t nonce;
-    uint8_t msgType;
+    MsgType msgType;
 
     ////
     struct {
         unsigned int fees : 1;
-        unsigned int sendmsg : 1;
-        unsigned int votemsg : 1;
-        unsigned int updatemsg : 1;
+        unsigned int tx_message : 1;
     } seen;
 
     const uint8_t *feesPtr;
@@ -270,7 +270,7 @@ typedef struct {
         struct {
             const uint8_t *updatemsgPtr;
             uint16_t updatemsgLen;
-            parser_updatemsg_t updatemsg;   // PB Field 57
+            parser_updatemultisigmsg_t updatemsg;   // PB Field 57
         };
         struct {
             const uint8_t *votemsgPtr;
@@ -286,7 +286,7 @@ void parser_feesInit(parser_fees_t *fees);
 void parser_multisigInit(parser_multisig_t *msg);
 void parser_sendmsgInit(parser_sendmsg_t *msg);
 void parser_votemsgInit(parser_votemsg_t *msg);
-void parser_updatemsgInit(parser_updatemsg_t *msg);
+void parser_updatemsgInit(parser_updatemultisigmsg_t *msg);
 void parser_ParticipantmsgInit(parser_participant_t *msg);
 void parser_txInit(parser_tx_t *tx);
 

@@ -22,9 +22,19 @@
 
 parser_tx_t parser_tx_obj;
 
-parser_error_t parser_init_context(parser_context_t *ctx,
-                                   const uint8_t *buffer,
-                                   uint16_t bufferSize) {
+#define CHECK_NOT_DUPLICATED(FIELD) if (FIELD) return parser_duplicated_field; else FIELD = 1;
+
+#define WITH_CONTEXT(PTR, LEN, CALL) { \
+    parser_context_t __tmpctx; \
+    parser_error_t __err = parser_init_context(&__tmpctx, PTR, LEN); \
+    if ( __err != parser_no_data) FAIL_ON_ERROR(CALL) }
+
+#define READ_NONNEGATIVE_INT64(FIELD) err = _readNonNegativeInt64(ctx, &FIELD); if (err!=parser_ok) return err;
+#define READ_UINT32(FIELD) FAIL_ON_ERROR(_readUInt32(ctx, &FIELD))
+#define READ_UINT8(FIELD) FAIL_ON_ERROR(_readUInt8(ctx, &FIELD))
+#define READ_ARRAY(FIELD) FAIL_ON_ERROR(_readArray(ctx, &FIELD##Ptr, &FIELD##Len))
+
+parser_error_t parser_init_context(parser_context_t *ctx, const uint8_t *buffer, uint16_t bufferSize) {
     ctx->offset = 0;
     ctx->lastConsumed = 0;
 
@@ -42,13 +52,11 @@ parser_error_t parser_init_context(parser_context_t *ctx,
 }
 
 parser_error_t parser_init(parser_context_t *ctx, const uint8_t *buffer, uint16_t bufferSize) {
-    parser_error_t err = parser_init_context(ctx, buffer, bufferSize);
-    if (err != parser_ok)
-        return err;
+    FAIL_ON_ERROR(parser_init_context(ctx, buffer, bufferSize))
 
     parser_txInit(&parser_tx_obj);
 
-    return err;
+    return parser_ok;
 }
 
 const char *parser_getErrorDescription(parser_error_t err) {
@@ -138,10 +146,7 @@ parser_error_t _readNonNegativeInt64(parser_context_t *ctx, int64_t *value) {
     ctx->lastConsumed = 0;
 
     uint64_t tmpValue;
-    parser_error_t err = _readVarint(ctx, &tmpValue);
-    if (err != parser_ok) {
-        return err;
-    }
+    FAIL_ON_ERROR(_readVarint(ctx, &tmpValue))
 
     *value = *((int64_t *) &tmpValue);
 
@@ -156,10 +161,7 @@ parser_error_t _readUInt32(parser_context_t *ctx, uint32_t *value) {
     ctx->lastConsumed = 0;
 
     uint64_t tmpValue;
-    parser_error_t err = _readVarint(ctx, &tmpValue);
-    if (err != parser_ok) {
-        return err;
-    }
+    FAIL_ON_ERROR( _readVarint(ctx, &tmpValue))
 
     if (tmpValue >= (uint64_t) UINT32_MAX) {
         return parser_value_out_of_range;
@@ -173,10 +175,7 @@ parser_error_t _readUInt8(parser_context_t *ctx, uint8_t *value) {
     ctx->lastConsumed = 0;
 
     uint64_t tmpValue;
-    parser_error_t err = _readVarint(ctx, &tmpValue);
-    if (err != parser_ok) {
-        return err;
-    }
+    FAIL_ON_ERROR( _readVarint(ctx, &tmpValue))
 
     if (tmpValue >= (uint64_t) UINT8_MAX) {
         return parser_value_out_of_range;
@@ -186,9 +185,10 @@ parser_error_t _readUInt8(parser_context_t *ctx, uint8_t *value) {
     return parser_ok;
 }
 
-parser_error_t _readArray(parser_context_t *ctx, const uint8_t **s, uint16_t *stringLen) {
+parser_error_t _readArray(parser_context_t *ctx, const uint8_t **arrayPtr, uint16_t *arrayLength) {
     ctx->lastConsumed = 0;
 
+    // First retrieve array type and confirm
     uint64_t v;
     parser_error_t err = _readRawVarint(ctx, &v);
     if (err != parser_ok) {
@@ -200,6 +200,7 @@ parser_error_t _readArray(parser_context_t *ctx, const uint8_t **s, uint16_t *st
         return parser_unexpected_wire_type;
     }
 
+    // Now get number of bytes
     uint64_t tmpValue;
     err = _readRawVarint(ctx, &tmpValue);
     if (tmpValue >= (uint64_t) UINT16_MAX) {
@@ -209,16 +210,17 @@ parser_error_t _readArray(parser_context_t *ctx, const uint8_t **s, uint16_t *st
         ctx->lastConsumed = 0;
         return err;
     }
-    *stringLen = tmpValue;
+    *arrayLength = tmpValue;
 
     // check that the returned buffer is not out of bounds
-    if (ctx->offset + ctx->lastConsumed + *stringLen > ctx->bufferLen) {
+    if (ctx->offset + ctx->lastConsumed + *arrayLength > ctx->bufferLen) {
         ctx->lastConsumed = 0;
         return parser_unexpected_buffer_end;
     }
 
-    *s = ctx->buffer + ctx->offset + ctx->lastConsumed;
-    ctx->lastConsumed += *stringLen;
+    // Set a pointer to the start of the first element
+    *arrayPtr = ctx->buffer + ctx->offset + ctx->lastConsumed;
+    ctx->lastConsumed += *arrayLength;
 
     ctx->offset += ctx->lastConsumed;
     ctx->lastConsumed = 0;
@@ -262,31 +264,11 @@ parser_error_t _checkChainIDValid(const uint8_t *p, uint16_t len) {
     return parser_ok;
 }
 
-#define DEFINE_CONTEXT() \
-    parser_context_t ctx;   \
-    parser_error_t err = parser_init_context(&ctx, bufferPtr, bufferLen);   \
-    if (err == parser_no_data) { return parser_ok; }        // Not available, use defaults
-
-#define CHECK_NOT_DUPLICATED(FIELD) \
-    if (FIELD) { return parser_duplicated_field; }        \
-    FIELD = 1;
-
-#define READ_NONNEGATIVE_INT64(FIELD) err = _readNonNegativeInt64(&ctx, &FIELD); if (err!=parser_ok) return err;
-#define READ_UINT32(FIELD) err = _readUInt32(&ctx, &FIELD); if (err!=parser_ok) return err;
-#define READ_UINT8(FIELD) err = _readUInt8(&ctx, &FIELD); if (err!=parser_ok) return err;
-#define READ_ARRAY(FIELD) err = _readArray(&ctx, &FIELD##Ptr, &FIELD##Len); if (err!=parser_ok) return err;
-
-parser_error_t parser_readPB_Metadata(const uint8_t *bufferPtr,
-                                      uint16_t bufferLen,
-                                      parser_metadata_t *metadata) {
-    DEFINE_CONTEXT()
+parser_error_t parser_readPB_Metadata(parser_context_t *ctx, parser_metadata_t *metadata) {
 
     uint64_t v;
-    while (ctx.offset < ctx.bufferLen && err == parser_ok) {
-        err = _readRawVarint(&ctx, &v);
-        if (err != parser_ok) {
-            return err;
-        }
+    while (ctx->offset < ctx->bufferLen) {
+        FAIL_ON_ERROR( _readRawVarint(ctx, &v))
 
         switch (FIELD_NUM(v)) {
             case PBIDX_METADATA_SCHEMA: {
@@ -303,17 +285,12 @@ parser_error_t parser_readPB_Metadata(const uint8_t *bufferPtr,
     return parser_ok;
 }
 
-parser_error_t parser_readPB_Coin(const uint8_t *bufferPtr,
-                                  uint16_t bufferLen,
-                                  parser_coin_t *coin) {
-    DEFINE_CONTEXT()
-
+parser_error_t parser_readPB_Coin(parser_context_t *ctx, parser_coin_t *coin) {
+    parser_error_t err;
     uint64_t v;
-    while (ctx.offset < ctx.bufferLen && err == parser_ok) {
-        err = _readRawVarint(&ctx, &v);
-        if (err != parser_ok) {
-            return err;
-        }
+
+    while (ctx->offset < ctx->bufferLen) {
+        FAIL_ON_ERROR( _readRawVarint(ctx, &v))
 
         switch (FIELD_NUM(v)) {
             case PBIDX_COIN_WHOLE: {
@@ -345,24 +322,15 @@ parser_error_t parser_readPB_Coin(const uint8_t *bufferPtr,
     if (coin->tickerLen < 3 || coin->tickerLen > 4)
         return parser_value_out_of_range;
 
-    err = _checkUppercaseLetters(coin->tickerPtr, coin->tickerLen);
-    if (err != parser_ok)
-        return err;
+    FAIL_ON_ERROR(_checkUppercaseLetters(coin->tickerPtr, coin->tickerLen))
 
     return parser_ok;
 }
 
-parser_error_t parser_readPB_Fees(const uint8_t *bufferPtr,
-                                  uint16_t bufferLen,
-                                  parser_fees_t *fees) {
-    DEFINE_CONTEXT()
-
+parser_error_t parser_readPB_Fees(parser_context_t *ctx, parser_fees_t *fees) {
     uint64_t v;
-    while (ctx.offset < ctx.bufferLen && err == parser_ok) {
-        err = _readRawVarint(&ctx, &v);
-        if (err != parser_ok) {
-            return err;
-        }
+    while (ctx->offset < ctx->bufferLen) {
+        FAIL_ON_ERROR( _readRawVarint(ctx, &v))
 
         switch (FIELD_NUM(v)) {
             case PBIDX_FEES_PAYER: {
@@ -381,8 +349,8 @@ parser_error_t parser_readPB_Fees(const uint8_t *bufferPtr,
         }
     }
 
-    err = parser_readPB_Coin(fees->coinPtr, fees->coinLen, &fees->coin);
-    if (err != parser_ok) return err;
+    WITH_CONTEXT(fees->coinPtr, fees->coinLen,
+                 parser_readPB_Coin(&__tmpctx, &fees->coin))
 
     return parser_ok;
 }
@@ -399,10 +367,7 @@ parser_error_t parser_readPB_Multisig(parser_context_t *ctx, parser_multisig_t *
 
     const uint8_t *p;
     uint16_t pLen;
-    parser_error_t err = _readArray(ctx, &p, &pLen);
-    if (err != parser_ok) {
-        return err;
-    }
+    FAIL_ON_ERROR( _readArray(ctx, &p, &pLen))
 
     if (pLen != 8) {
         return parser_unexpected_field_length;
@@ -415,17 +380,11 @@ parser_error_t parser_readPB_Multisig(parser_context_t *ctx, parser_multisig_t *
     return parser_ok;
 }
 
-parser_error_t parser_readPB_SendMsg(const uint8_t *bufferPtr,
-                                     uint16_t bufferLen,
-                                     parser_sendmsg_t *sendmsg) {
-    DEFINE_CONTEXT()
+parser_error_t parser_readPB_SendMsg(parser_context_t *ctx, parser_sendmsg_t *sendmsg) {
 
     uint64_t v;
-    while (ctx.offset < ctx.bufferLen && err == parser_ok) {
-        err = _readRawVarint(&ctx, &v);
-        if (err != parser_ok) {
-            return err;
-        }
+    while (ctx->offset < ctx->bufferLen) {
+        FAIL_ON_ERROR( _readRawVarint(ctx, &v))
 
         switch (FIELD_NUM(v)) {
             case PBIDX_SENDMSG_METADATA: {
@@ -465,27 +424,20 @@ parser_error_t parser_readPB_SendMsg(const uint8_t *bufferPtr,
         }
     }
 
-    err = parser_readPB_Metadata(sendmsg->metadataPtr, sendmsg->metadataLen, &sendmsg->metadata);
-    if (err != parser_ok) return err;
+    WITH_CONTEXT(sendmsg->metadataPtr, sendmsg->metadataLen,
+                 parser_readPB_Metadata(&__tmpctx, &sendmsg->metadata))
 
-    err = parser_readPB_Coin(sendmsg->amountPtr, sendmsg->amountLen, &sendmsg->amount);
-    if (err != parser_ok) return err;
+    WITH_CONTEXT(sendmsg->amountPtr, sendmsg->amountLen,
+                 parser_readPB_Coin(&__tmpctx, &sendmsg->amount))
 
-    return err;
+    return parser_ok;
 }
 
-
-parser_error_t parser_readPB_VoteMsg(const uint8_t *bufferPtr,
-                                     uint16_t bufferLen,
-                                     parser_votemsg_t *votemsg) {
-    DEFINE_CONTEXT()
+parser_error_t parser_readPB_VoteMsg(parser_context_t *ctx, parser_votemsg_t *votemsg) {
 
     uint64_t v;
-    while (ctx.offset < ctx.bufferLen && err == parser_ok) {
-        err = _readRawVarint(&ctx, &v);
-        if (err != parser_ok) {
-            return err;
-        }
+    while (ctx->offset < ctx->bufferLen) {
+        FAIL_ON_ERROR( _readRawVarint(ctx, &v))
 
         switch (FIELD_NUM(v)) {
             case PBIDX_VOTEMSG_METADATA: {
@@ -514,62 +466,54 @@ parser_error_t parser_readPB_VoteMsg(const uint8_t *bufferPtr,
         }
     }
 
-    err = parser_readPB_Metadata(votemsg->metadataPtr, votemsg->metadataLen, &votemsg->metadata);
-    if (err != parser_ok) return err;
+    WITH_CONTEXT(votemsg->metadataPtr, votemsg->metadataLen,
+                 parser_readPB_Metadata(&__tmpctx, &votemsg->metadata))
 
-    return err;
+    return parser_ok;
 }
 
-parser_error_t parser_readPB_UpdateMsg(const uint8_t *bufferPtr,
-                                       uint16_t bufferLen,
-                                       parser_updatemsg_t *updatemsg) {
-    DEFINE_CONTEXT()
+parser_error_t parser_readPB_UpdateMultisigMsg(parser_context_t *ctx, parser_updatemultisigmsg_t *updatemultisigmsg) {
 
     uint64_t v;
-    while (ctx.offset < ctx.bufferLen && err == parser_ok) {
-        err = _readRawVarint(&ctx, &v);
-        if (err != parser_ok) {
-            return err;
-        }
+    while (ctx->offset < ctx->bufferLen) {
+        FAIL_ON_ERROR(_readRawVarint(ctx, &v))
 
         switch (FIELD_NUM(v)) {
             case PBIDX_UPDATEMSG_METADATA: {
-                CHECK_NOT_DUPLICATED(updatemsg->seen.metadata)
-                READ_ARRAY(updatemsg->metadata)
+                CHECK_NOT_DUPLICATED(updatemultisigmsg->seen.metadata)
+                READ_ARRAY(updatemultisigmsg->metadata)
                 break;
             }
             case PBIDX_UPDATEMSG_ID: {
-                CHECK_NOT_DUPLICATED(updatemsg->seen.id)
-                READ_ARRAY(updatemsg->contractId)
+                CHECK_NOT_DUPLICATED(updatemultisigmsg->seen.id)
+                READ_ARRAY(updatemultisigmsg->contractId)
                 break;
             }
             case PBIDX_UPDATEMSG_PARTICIPANTS: {
-                // This is a repeated field
-                READ_ARRAY(updatemsg->participants);
-                parser_participant_t participant;
-                parser_ParticipantmsgInit(&participant);
-                err = parser_readPB_Participant(updatemsg->participantsPtr,
-                                                updatemsg->participantsLen,
-                                                &participant);
-                if (err != parser_ok)
-                    return err;
-
-                if(updatemsg->participantsCount > 0) {
-                    //participantsPtr will always point to the first Participant on the array
-                    updatemsg->participantsPtr = (uint8_t *) (updatemsg->participantsPtr - (updatemsg->participantsLen *
-                                                                                            updatemsg->participantsCount)-2);
+                if (updatemultisigmsg->participantsCount >= PBIDX_UPDATEMSG_PARTICIPANTS_MAX){
+                    return parser_unexpected_number_items;
                 }
-                updatemsg->participantsCount++;
+
+                parser_context_t local_ctx;
+                FAIL_ON_ERROR(_readArray(ctx, &local_ctx.buffer, &local_ctx.bufferLen))
+                local_ctx.offset = 0;
+                local_ctx.lastConsumed = 0;
+
+                FAIL_ON_ERROR(parser_readPB_Participant(
+                        &local_ctx,
+                        &updatemultisigmsg->participant_array[updatemultisigmsg->participantsCount]))
+
+                updatemultisigmsg->participantsCount++;
                 break;
             }
             case PBIDX_UPDATEMSG_ACTIVATION_TH: {
-                CHECK_NOT_DUPLICATED(updatemsg->seen.activation_th)
-                READ_UINT32(updatemsg->activation_th)
+                CHECK_NOT_DUPLICATED(updatemultisigmsg->seen.activation_th)
+                READ_UINT32(updatemultisigmsg->activation_th)
                 break;
             }
             case PBIDX_UPDATEMSG_ADMIN_TH: {
-                CHECK_NOT_DUPLICATED(updatemsg->seen.admin_th)
-                READ_UINT32(updatemsg->admin_th)
+                CHECK_NOT_DUPLICATED(updatemultisigmsg->seen.admin_th)
+                READ_UINT32(updatemultisigmsg->admin_th)
                 break;
             }
             default:
@@ -578,23 +522,17 @@ parser_error_t parser_readPB_UpdateMsg(const uint8_t *bufferPtr,
         }
     }
 
-    err = parser_readPB_Metadata(updatemsg->metadataPtr, updatemsg->metadataLen, &updatemsg->metadata);
-    if (err != parser_ok) return err;
+    WITH_CONTEXT(updatemultisigmsg->metadataPtr, updatemultisigmsg->metadataLen,
+                 parser_readPB_Metadata(&__tmpctx, &updatemultisigmsg->metadata))
 
-    return err;
+    return parser_ok;
 }
 
-parser_error_t parser_readPB_Participant(const uint8_t *bufferPtr,
-                                         uint16_t bufferLen,
-                                         parser_participant_t *participant) {
-    DEFINE_CONTEXT()
+parser_error_t parser_readPB_Participant(parser_context_t *ctx, parser_participant_t *participant) {
 
     uint64_t v;
-    while (ctx.offset < ctx.bufferLen && err == parser_ok) {
-        err = _readRawVarint(&ctx, &v);
-        if (err != parser_ok) {
-            return err;
-        }
+    while (ctx->offset < ctx->bufferLen) {
+        FAIL_ON_ERROR( _readRawVarint(ctx, &v))
 
         switch (FIELD_NUM(v)) {
             case PBIDX_PARTICIPANTMSG_SIGNATURE: {
@@ -621,10 +559,7 @@ parser_error_t parser_readPB_Root(parser_context_t *ctx) {
     uint64_t v;
     while (ctx->offset < ctx->bufferLen && err == parser_ok) {
 
-        err = _readRawVarint(ctx, &v);
-        if (err != parser_ok) {
-            return err;
-        }
+        FAIL_ON_ERROR( _readRawVarint(ctx, &v))
 
         switch (FIELD_NUM(v)) {
             case PBIDX_TX_FEES: {
@@ -638,19 +573,19 @@ parser_error_t parser_readPB_Root(parser_context_t *ctx) {
                 break;
             }
             case PBIDX_TX_SENDMSG: {
-                CHECK_NOT_DUPLICATED(parser_tx_obj.seen.sendmsg)
+                CHECK_NOT_DUPLICATED(parser_tx_obj.seen.tx_message)
                 err = _readArray(ctx, &parser_tx_obj.sendmsgPtr, &parser_tx_obj.sendmsgLen);
                 parser_tx_obj.msgType = Msg_Send;
                 break;
             }
             case PBIDX_TX_VOTEMSG: {
-                CHECK_NOT_DUPLICATED(parser_tx_obj.seen.votemsg)
+                CHECK_NOT_DUPLICATED(parser_tx_obj.seen.tx_message)
                 err = _readArray(ctx, &parser_tx_obj.votemsgPtr, &parser_tx_obj.votemsgLen);
                 parser_tx_obj.msgType = Msg_Vote;
                 break;
             }
             case PBIDX_TX_UPDATEMSG: {
-                CHECK_NOT_DUPLICATED(parser_tx_obj.seen.updatemsg)
+                CHECK_NOT_DUPLICATED(parser_tx_obj.seen.tx_message)
                 err = _readArray(ctx, &parser_tx_obj.updatemsgPtr, &parser_tx_obj.updatemsgLen);
                 parser_tx_obj.msgType = Msg_Update;
                 break;
@@ -712,50 +647,41 @@ parser_error_t parser_readRoot(parser_context_t *ctx) {
         return parser_unexpected_version;
     }
 
-    parser_error_t err = _checkValidReadableChars(parser_tx_obj.chainID, parser_tx_obj.chainIDLen);
-    if (err != parser_ok) return err;
+    FAIL_ON_ERROR( _checkValidReadableChars(parser_tx_obj.chainID, parser_tx_obj.chainIDLen))
 
     ctx->offset += ctx->lastConsumed;
     ctx->lastConsumed = 0;
 
     // ---------- READ SERIALIZED TRANSACTION
-    err = parser_readPB_Root(ctx);
-    if (err != parser_ok) return err;
+    FAIL_ON_ERROR(parser_readPB_Root(ctx))
 
     return parser_ok;
 }
 
 parser_error_t parser_Tx(parser_context_t *ctx) {
 
-    parser_error_t err = parser_readRoot(ctx);
-    if (err != parser_ok) return err;
+    FAIL_ON_ERROR(parser_readRoot(ctx))
 
-    err = parser_readPB_Fees(parser_tx_obj.feesPtr,
-                             parser_tx_obj.feesLen,
-                             &parser_tx_obj.fees);
-    if (err != parser_ok) return err;
+    WITH_CONTEXT(parser_tx_obj.feesPtr, parser_tx_obj.feesLen,
+                 parser_readPB_Fees(&__tmpctx, &parser_tx_obj.fees))
 
     //Tx should contains only one of the following
-    switch (parser_tx_obj.msgType)
-    {
-        case Msg_Send:
-            err = parser_readPB_SendMsg(parser_tx_obj.sendmsgPtr,
-                                        parser_tx_obj.sendmsgLen,
-                                        &parser_tx_obj.sendmsg);
-            if (err != parser_ok) return err;
+    switch (parser_tx_obj.msgType) {
+        case Msg_Send: {
+            WITH_CONTEXT(parser_tx_obj.sendmsgPtr, parser_tx_obj.sendmsgLen,
+                         parser_readPB_SendMsg(&__tmpctx, &parser_tx_obj.sendmsg))
             break;
-        case Msg_Vote:
-            err = parser_readPB_VoteMsg(parser_tx_obj.votemsgPtr,
-                                        parser_tx_obj.votemsgLen,
-                                        &parser_tx_obj.votemsg);
-            if (err != parser_ok) return err;
+        }
+        case Msg_Vote: {
+            WITH_CONTEXT(parser_tx_obj.votemsgPtr, parser_tx_obj.votemsgLen,
+                         parser_readPB_VoteMsg(&__tmpctx, &parser_tx_obj.votemsg))
             break;
-        case Msg_Update:
-            err = parser_readPB_UpdateMsg(parser_tx_obj.updatemsgPtr,
-                                          parser_tx_obj.updatemsgLen,
-                                          &parser_tx_obj.updatemsg);
-            if (err != parser_ok) return err;
+        }
+        case Msg_Update: {
+            WITH_CONTEXT(parser_tx_obj.updatemsgPtr, parser_tx_obj.updatemsgLen,
+                         parser_readPB_UpdateMultisigMsg(&__tmpctx, &parser_tx_obj.updatemsg))
             break;
+        }
         default:
             return parser_no_data;
     }
@@ -825,34 +751,6 @@ parser_error_t parser_arrayToString(char *out, uint16_t outLen,
     }
 
     MEMCPY(out, in + offset, chunkSize);
-
-    return parser_ok;
-}
-
-parser_error_t parser_formatAmount(char *out, uint16_t outLen, parser_coin_t *coin) {
-    if (outLen < IOV_WHOLE_DIGITS + IOV_FRAC_DIGITS + 2) {
-        return parser_unexpected_buffer_end;
-    }
-    MEMSET(out, 0, outLen);
-
-    if (coin->whole > 0) {
-        if (int64_to_str(out, outLen, coin->whole)) return parser_unexpected_buffer_end;
-        uint8_t out_p = strlen(out);
-        MEMSET(out + out_p, '0', IOV_FRAC_DIGITS);        // Fill with 9 zeros
-
-        if (coin->fractional > 0) {
-            // concatenate and fill with zeros
-            char f[IOV_FRAC_DIGITS + 1];
-            MEMSET(f, 0, IOV_FRAC_DIGITS + 1);
-            if (int64_to_str(f, IOV_FRAC_DIGITS + 1, coin->fractional)) return parser_unexpected_buffer_end;
-
-            uint8_t fLen = strlen(f);
-            MEMCPY(out + out_p + (IOV_FRAC_DIGITS - fLen), f, fLen);
-        }
-
-    } else {
-        if (int64_to_str(out, outLen, coin->fractional)) return parser_unexpected_buffer_end;
-    }
 
     return parser_ok;
 }
