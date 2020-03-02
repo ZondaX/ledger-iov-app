@@ -22,9 +22,7 @@ extern "C" {
 #include <stdint.h>
 #include <stddef.h>
 
-#define CHECK_PARSER_ERR(CALL) { \
-    parser_error_t err = CALL;  \
-    if (err!=parser_ok) return err;}
+#define FAIL_ON_ERROR(CALL) { parser_error_t __local_err = CALL; if (__local_err!=parser_ok) return __local_err; }
 
 typedef enum {
     // Generic errors

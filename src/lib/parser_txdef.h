@@ -14,6 +14,7 @@
 *  limitations under the License.
 ********************************************************************************/
 #pragma once
+
 #include "coin.h"
 
 //version | len(chainID) | chainID      | nonce             | signBytes
@@ -139,20 +140,116 @@ typedef struct {
     uint16_t refLen;
 } parser_sendmsg_t;
 
+#define PBIDX_VOTEMSG_METADATA      1
+#define PBIDX_VOTEMSG_PROPOSAL_ID   2
+#define PBIDX_VOTEMSG_VOTER         3
+#define PBIDX_VOTEMSG_VOTE          4
+
+#define VOTE_OPTION_INVALID    0
+#define VOTE_OPTION_YES        1
+#define VOTE_OPTION_NO         2
+#define VOTE_OPTION_ABSTAIN    3
+
+#define VOTE_OPTION_INVALID_STR    "invalid"
+#define VOTE_OPTION_YES_STR        "yes"
+#define VOTE_OPTION_NO_STR         "no"
+#define VOTE_OPTION_ABSTAIN_STR    "abstain"
+
+typedef struct {
+    // These bits are to avoid duplicated fields
+    struct {
+        unsigned int metadata : 1;
+        unsigned int id : 1;
+        unsigned int voter : 1;
+        unsigned int voteOption : 1;
+    } seen;
+
+    const uint8_t *metadataPtr;
+    uint16_t metadataLen;
+    parser_metadata_t metadata;
+
+    const uint8_t *proposalIdPtr;
+    uint16_t proposalIdLen;
+
+    const uint8_t *voterPtr;
+    uint16_t voterLen;
+
+    uint8_t voteOption;
+} parser_votemsg_t;
+
+#define PBIDX_UPDATEMSG_METADATA          1
+#define PBIDX_UPDATEMSG_ID                2
+#define PBIDX_UPDATEMSG_PARTICIPANTS      3
+#define PBIDX_UPDATEMSG_ACTIVATION_TH     4
+#define PBIDX_UPDATEMSG_ADMIN_TH          5
+
+#define PBIDX_PARTICIPANTMSG_SIGNATURE    1
+#define PBIDX_PARTICIPANTMSG_WEIGHT       2
+
+#define PBIDX_UPDATEMSG_PARTICIPANTS_MAX 16
+
+typedef struct {
+    // These bits are to avoid duplicated fields
+    struct {
+        unsigned int signature : 1;
+        unsigned int weight : 1;
+    } seen;
+
+    const uint8_t *signaturePtr;
+    uint16_t signatureLen;
+
+    uint32_t weight;
+} parser_participant_t;
+
+typedef struct {
+    // These bits are to avoid duplicated fields
+    struct {
+        unsigned int metadata : 1;
+        unsigned int id : 1;
+        unsigned int activation_th : 1;
+        unsigned int admin_th : 1;
+    } seen;
+
+    const uint8_t *metadataPtr;
+    uint16_t metadataLen;
+    parser_metadata_t metadata;
+
+    const uint8_t *contractIdPtr;
+    uint16_t contractIdLen;
+
+    //Participants is a repeated field
+    uint8_t participantsCount; //Total participants fields in Tx
+    parser_participant_t participant_array[PBIDX_UPDATEMSG_PARTICIPANTS_MAX];
+
+    uint32_t activation_th;
+    uint32_t admin_th;
+} parser_updatemultisigmsg_t;
+
+
 #define PBIDX_TX_FEES           1
 #define PBIDX_TX_MULTISIG       4
 #define PBIDX_TX_SENDMSG        51
+#define PBIDX_TX_UPDATEMSG      57
+#define PBIDX_TX_VOTEMSG        75
+
+typedef enum {
+    Msg_Invalid = 0,
+    Msg_Send,
+    Msg_Vote,
+    Msg_Update,
+} MsgType;
 
 typedef struct {
     const uint32_t *version;
     uint8_t chainIDLen;
     const uint8_t *chainID;
     int64_t nonce;
+    MsgType msgType;
 
     ////
     struct {
         unsigned int fees : 1;
-        unsigned int sendmsg : 1;
+        unsigned int tx_message : 1;
     } seen;
 
     const uint8_t *feesPtr;
@@ -161,17 +258,36 @@ typedef struct {
 
     const uint8_t *multisigPtr;
     uint16_t multisigLen;
-    parser_multisig_t multisig;        // PB Field 4
+    parser_multisig_t multisig;     // PB Field 4
 
-    const uint8_t *sendmsgPtr;
-    uint16_t sendmsgLen;
-    parser_sendmsg_t sendmsg;       // PB Field 51
+    //TxMsg has only one of the following
+    union {
+        struct {
+            const uint8_t *sendmsgPtr;
+            uint16_t sendmsgLen;
+            parser_sendmsg_t sendmsg;       // PB Field 51
+        };
+        struct {
+            const uint8_t *updatemsgPtr;
+            uint16_t updatemsgLen;
+            parser_updatemultisigmsg_t updatemsg;   // PB Field 57
+        };
+        struct {
+            const uint8_t *votemsgPtr;
+            uint16_t votemsgLen;
+            parser_votemsg_t votemsg;       // PB Field 75
+        };
+        //
+    };
 } parser_tx_t;
 
 void parser_coinInit(parser_coin_t *coin);
 void parser_feesInit(parser_fees_t *fees);
 void parser_multisigInit(parser_multisig_t *msg);
 void parser_sendmsgInit(parser_sendmsg_t *msg);
+void parser_votemsgInit(parser_votemsg_t *msg);
+void parser_updatemsgInit(parser_updatemultisigmsg_t *msg);
+void parser_ParticipantmsgInit(parser_participant_t *msg);
 void parser_txInit(parser_tx_t *tx);
 
 #ifdef __cplusplus

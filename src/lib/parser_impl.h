@@ -46,23 +46,23 @@ parser_error_t _readVarint(parser_context_t *ctx, uint64_t *value);
 
 parser_error_t _readUInt32(parser_context_t *ctx, uint32_t *value);
 
-parser_error_t _readArray(parser_context_t *ctx, const uint8_t **s, uint16_t *stringLen);
+parser_error_t _readUInt8(parser_context_t *ctx, uint8_t *value);
 
-parser_error_t parser_readPB_Metadata(const uint8_t *bufferPtr,
-                                      uint16_t bufferLen,
-                                      parser_metadata_t *metadata);
+parser_error_t _readArray(parser_context_t *ctx, const uint8_t **arrayPtr, uint16_t *arrayLength);
 
-parser_error_t parser_readPB_Coin(const uint8_t *bufferPtr,
-                                  uint16_t bufferLen,
-                                  parser_coin_t *coin);
+parser_error_t parser_readPB_Metadata(parser_context_t *ctx, parser_metadata_t *metadata);
 
-parser_error_t parser_readPB_Fees(const uint8_t *bufferPtr,
-                                  uint16_t bufferLen,
-                                  parser_fees_t *fees);
+parser_error_t parser_readPB_Coin(parser_context_t *ctx, parser_coin_t *coin);
 
-parser_error_t parser_readPB_SendMsg(const uint8_t *bufferPtr,
-                                     uint16_t bufferLen,
-                                     parser_sendmsg_t *sendmsg);
+parser_error_t parser_readPB_Fees(parser_context_t *ctx, parser_fees_t *fees);
+
+parser_error_t parser_readPB_SendMsg(parser_context_t *ctx, parser_sendmsg_t *sendmsg);
+
+parser_error_t parser_readPB_VoteMsg(parser_context_t *ctx, parser_votemsg_t *votemsg);
+
+parser_error_t parser_readPB_UpdateMultisigMsg(parser_context_t *ctx, parser_updatemultisigmsg_t *updatemultisigmsg);
+
+parser_error_t parser_readPB_Participant(parser_context_t *ctx, parser_participant_t *participant);
 
 parser_error_t parser_readPB_Root(parser_context_t *ctx);
 
